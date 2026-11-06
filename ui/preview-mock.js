@@ -16,7 +16,7 @@
     p('stock-notes', 57, 0, 0, 232, false),
     p('old-portfolio', 108, 0, 0, 0, true),
   ];
-  let settings = { root: `${home}/Projects`, archiveDays: 30, lang: 'auto', theme: 'auto' };
+  let settings = { root: `${home}/Projects`, archiveDays: 30, lang: 'auto', theme: 'auto', ring: true, ringModifier: 'option', ringPreview: false, launchAtLogin: false, startHidden: false };
   let history = [];
   const plan = (m) => {
     const pr = projects.find((x) => x.path === m.from) || { claude: 0, claude_app: 0, codex: 0, name: m.from.split('/').pop() };
@@ -44,10 +44,13 @@
       return { ...r.plan, from: r.plan.to, to: r.plan.from, blockers: [] };
     },
     pick_root: () => null,
+    ring_drop: async ({ action, paths }) => (await wait(600), paths.map((from) => plan({ from, archive: action === 'archive' }))),
+    ring_hide: () => {},
     reveal: () => {},
   };
   window.__TAURI__ = {
     core: { invoke: async (cmd, args) => handlers[cmd](args || {}) },
     webview: { getCurrentWebview: () => ({ onDragDropEvent: () => Promise.resolve(() => {}) }) },
+    event: { listen: () => Promise.resolve(() => {}) },
   };
 })();

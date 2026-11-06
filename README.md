@@ -25,10 +25,11 @@ Homing is the move that keeps the links.
 
 ## What it does
 
+- **Hold ⌥ and drag (macOS).** Drag a project folder from the Desktop or Finder, press ⌥, and a ring opens under the cursor: **Projects**, **Archive** and **Preview**. Release on one and the folder is moved, sessions included, with **Undo** right in the middle of the ring. Release in the middle to cancel. No Accessibility permission needed; Homing waits in the menu bar.
 - **One list, one button.** Open Homing and see every project folder on your Desktop: when you last touched it and how many Claude and Codex sessions belong to it. Active projects go to `~/Projects`, ones untouched for 30 days go to `~/Projects/Archive`. Press **Preview**, then **Move**.
-- **Drop any folder** on the window to move just that one.
+- **Drop any folder** on the window to preview moving just that one.
 - **Agents follow the folder.** Homing rewrites the stored paths so sessions resume from the new location.
-- **Preview first, undo always.** Nothing moves until you confirm the preview. Every move is listed in History with an **Undo** that puts the folder and all session records back.
+- **Preview first, undo always.** In the window nothing moves until you confirm the preview; with the ring, releasing on a destination is the confirmation (switch it to *Preview first* in Settings if you prefer). Every move is listed in History with an **Undo** that puts the folder and all session records back.
 - **Refuses unsafe moves.** If a terminal, agent or dev server is running inside the folder, or if Claude or Codex is open and holds that project's sessions in memory, Homing tells you to close it first instead of racing it.
 
 ### What gets updated
@@ -44,7 +45,7 @@ Only JSON and TOML string values that **start with** the old path are rewritten.
 
 ## Safety
 
-- **Preview by default.** The app and the CLI change nothing until you confirm.
+- **Nothing moves by accident.** The window and the CLI only move after you confirm a preview (`--apply`); the ring moves when you release on a destination, and keeps Undo there and in the menu bar.
 - **Backups.** Before each move Homing copies the small index files it is about to change (the Codex database, the Claude app's session files, `config.toml`) to `~/Library/Application Support/app.homing.desktop/backups` (`%APPDATA%` on Windows). The last 10 are kept. Transcripts are not copied, because they can be gigabytes. They are replaced atomically and are restored by Undo.
 - **Never deletes.** Folders are moved with a single rename on the same disk. Moves across disks are refused.
 - **No network, no telemetry, no account.**
@@ -93,6 +94,7 @@ The UI is plain HTML, CSS and JS in `ui/` with no build step. Open `ui/index.htm
 
 ## Roadmap
 
+- The homing ring on Windows (today Windows users drop folders on the window)
 - Agent scratch folders outside the Desktop (`~/Documents/Codex/<date>/task`, the Claude app's scratch workspaces)
 - More agents: Cursor, Gemini CLI, OpenCode
 - Show reclaimable build caches (`node_modules`, `target`) per project
@@ -111,10 +113,11 @@ The UI is plain HTML, CSS and JS in `ui/` with no build step. Open `ui/index.htm
 
 归位做的就是"挪文件夹，但不断关联"：
 
+- **按住 ⌥ 拖动（macOS）**：从桌面或访达拖动项目文件夹时按住 ⌥，光标旁会弹出归位环，三格分别是【项目】【归档】【预览】。拖到一格松手就搬好了，会话一起带走，环中间留着【撤销】。拖到中间松手即取消。不需要辅助功能权限，Homing 平时待在菜单栏。
 - **一个列表，一个按钮**：打开就能看到桌面上所有项目文件夹，每个项目最近什么时候动过、有多少 Claude 和 Codex 会话。最近 30 天动过的放进 `~/Projects`，更久没动的放进 `~/Projects/Archive`。点【预览归位】，确认后点【归位】。
-- **拖进窗口**：任何文件夹拖进来，就只处理这一个。
+- **拖进窗口**：任何文件夹拖进来，就只预览和处理这一个。
 - **会话跟着走**：自动更新 Claude Code、Claude 桌面版和 Codex 里记录的路径，在新位置照样能续上对话。只改路径，不改对话内容。
-- **先预览，随时撤销**：确认之前什么都不会动。每次归位都记在【记录】里，撤销会把文件夹和会话记录一起放回原处。
+- **先预览，随时撤销**：在窗口里，确认之前什么都不会动；用归位环时，拖到目标松手就是确认（也可以在设置里改成"先预览"）。菜单栏里随时可以"撤销上一次归位"。每次归位都记在【记录】里，撤销会把文件夹和会话记录一起放回原处。
 - **不冒险**：文件夹里有终端、代理或开发服务器在运行，或者 Claude、Codex 开着并且持有这个项目的会话，归位会提示你先关掉，而不是跟它们抢着写文件。
 
 **安装**：到 [Releases](../../releases) 下载。Apple 芯片的 Mac 选 `_aarch64.dmg`，Intel 的 Mac 选 `_x64.dmg`，Windows 选 `_x64-setup.exe`。应用还没有经过 Apple 公证，Mac 上第一次打开会被拦一次：打开**系统设置 → 隐私与安全性**，点归位旁边的**仍要打开**。之后系统会问一次是否允许归位访问"桌面"文件夹，选允许，它才能列出和移动你的项目。

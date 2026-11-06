@@ -45,6 +45,14 @@
     aSafeS: ['每次都先预览；正在使用的文件夹不会动；改动前备份索引文件；每次移动都能撤销。', 'Always previewed first; busy folders are left alone; index files are backed up; every move can be undone.'],
     aOffline: ['离线', 'Offline'], aOfflineS: ['不联网，没有统计，没有账号。', 'No network, no telemetry, no account.'],
     aCli: ['命令行', 'Command line'],
+    ringTip: (k) => (zh ? `小技巧：在桌面或访达里按住 <kbd>${k}</kbd> 拖动项目文件夹，光标旁会弹出归位环，拖到「项目」或「归档」松手就搬好了。` : `Tip: hold <kbd>${k}</kbd> while dragging a project folder on the Desktop or in Finder. A ring opens at the cursor: release on Projects or Archive and it is moved.`),
+    ringOn: ['按住按键拖动时弹出归位环', 'Homing ring while dragging'],
+    ringOnS: (k) => (zh ? `在桌面、访达或任何地方拖动文件夹时按住 ${k}。不需要辅助功能权限。Homing 需要在菜单栏运行。` : `Hold ${k} while dragging folders anywhere. No Accessibility permission needed. Homing must be running in the menu bar.`),
+    ringKey: ['触发键', 'Trigger key'], ringKeyS: ['按住哪个键拖动时弹出归位环。', 'Which key opens the ring while dragging.'],
+    ringAfter: ['松手之后', 'After you drop'], ringAfterS: ['"直接归位"会立刻移动，环中间保留撤销；"先预览"会打开主窗口让你确认。', '"Move right away" moves at once and keeps Undo in the ring; "Preview first" opens the window to confirm.'],
+    ringDirect: ['直接归位', 'Move right away'], ringAsk: ['先预览', 'Preview first'],
+    login: ['开机自动启动', 'Open at login'], loginS: ['登录后在菜单栏待命，归位环随时可用。', 'Waits in the menu bar after you log in, ring ready.'],
+    hidden: ['启动时不显示窗口', 'Start without a window'], hiddenS: ['只在菜单栏待命，需要时点图标打开。', 'Stay in the menu bar until you open it.'],
     dropNow: ['松手预览归位', 'Drop to preview'], dropNowS: ['任何文件夹都可以', 'Any folder works'],
     b_missing: ['文件夹已经不在了。', 'The folder is gone.'], b_notFolder: ['这不是文件夹。', 'Not a folder.'],
     b_protected: ['这是系统文件夹，不能移动。', 'A system folder; it stays.'],
@@ -75,6 +83,8 @@
   };
   const cold = (p) => Date.now() / 1000 - p.active > settings().archiveDays * 86400;
   const isArchive = (p) => (S.archive.has(p.path) ? S.archive.get(p.path) : cold(p));
+  const KEY = { option: '⌥', command: '⌘', control: '⌃', shift: '⇧' };
+  const ringKey = () => KEY[settings().ringModifier] || '⌥';
 
   const ICON = {
     swap: '<svg viewBox="0 0 24 24"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>',
@@ -109,6 +119,8 @@
     if (!S.scan) return;
     const ps = S.scan.projects;
     const d = settings().archiveDays;
+    $('#ringTip').hidden = !settings().ring;
+    $('#ringTip').innerHTML = t('ringTip', ringKey());
     $('#deskSub').textContent = !S.scan.desktop_ok ? t('noAccess') : ps.length ? t('deskSub', ps.length, tilde(settings().root)) : t('deskEmpty');
 
     const run = S.scan.running;
@@ -288,8 +300,19 @@
     $('#rootPath').textContent = tilde(s.root);
     $('#archiveDays').value = s.archiveDays;
     $('#archiveDaysOut').textContent = t('days', s.archiveDays);
-    $$('.seg[data-set]').forEach((seg) => seg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === s[seg.dataset.set]))));
+    $$('.seg[data-set]').forEach((seg) => seg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === String(s[seg.dataset.set])))));
+    $$('input[data-set]').forEach((i) => (i.checked = !!s[i.dataset.set]));
+    $$('[data-needs]').forEach((el) => el.classList.toggle('off', !s[el.dataset.needs]));
+    $('#ringOnS').textContent = t('ringOnS', ringKey());
   }
+
+  $$('input[data-set]').forEach((i) =>
+    i.addEventListener('change', async () => {
+      settings()[i.dataset.set] = i.checked;
+      await save();
+      renderAll();
+    }),
+  );
 
   $('#pickRoot').addEventListener('click', async () => {
     const dir = await invoke('pick_root');
@@ -309,7 +332,8 @@
     seg.addEventListener('click', async (e) => {
       const b = e.target.closest('button');
       if (!b) return;
-      settings()[seg.dataset.set] = b.dataset.v;
+      const v = b.dataset.v;
+      settings()[seg.dataset.set] = v === 'true' ? true : v === 'false' ? false : v;
       await save();
       applyLang();
       applyTheme();
@@ -354,8 +378,17 @@
     }
   });
 
+  // The ring and the menu bar act while this window may be hidden.
+  T.event.listen('open-preview', (e) => openPreview(e.payload));
+  T.event.listen('moved', () => {
+    rescan();
+    if ($('#app').dataset.page === 'history') renderHistory();
+  });
+  T.event.listen('undone', (e) => toast(e.payload.blockers.length ? t('toastFailed') + e.payload.blockers.join(', ') : t('toastUndone')));
+
   (async () => {
     S.info = await invoke('info');
+    if (S.info.platform === 'windows') document.documentElement.classList.add('os-win');
     $('#ver').textContent = 'v' + S.info.version;
     $('#aboutVer').textContent = 'v' + S.info.version;
     if (S.info.platform === 'windows') STR.reveal = ['在资源管理器中显示', 'Show in Explorer'];

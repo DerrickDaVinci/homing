@@ -29,6 +29,7 @@
         <div><h1 data-i18n="deskTitle"></h1><p id="deskSub"></p></div>
         <button class="btn" type="button" id="rescan" data-i18n="rescan"></button>
       </header>
+      <p class="tip" id="ringTip" data-mac hidden></p>
       <p class="banner" id="runningBanner" hidden></p>
       <div id="groups"></div>
       <div class="bar" id="bar">
@@ -46,6 +47,13 @@
     <!-- SETTINGS -->
     <section class="page" id="p-settings">
       <header class="ph"><h1 data-i18n="navSettings"></h1></header>
+      <div class="group" data-mac>
+        <div class="row"><div><b data-i18n="ringOn"></b><p id="ringOnS"></p></div><label class="switch"><input type="checkbox" data-set="ring"><i></i></label></div>
+        <div class="row" data-needs="ring"><div><b data-i18n="ringKey"></b><p data-i18n="ringKeyS"></p></div>
+          <div class="seg" data-set="ringModifier"><button type="button" data-v="option">⌥ Option</button><button type="button" data-v="command">⌘ Command</button><button type="button" data-v="control">⌃ Control</button><button type="button" data-v="shift">⇧ Shift</button></div></div>
+        <div class="row" data-needs="ring"><div><b data-i18n="ringAfter"></b><p data-i18n="ringAfterS"></p></div>
+          <div class="seg" data-set="ringPreview"><button type="button" data-v="false" data-i18n="ringDirect"></button><button type="button" data-v="true" data-i18n="ringAsk"></button></div></div>
+      </div>
       <div class="group">
         <div class="row"><div><b data-i18n="root"></b><p class="mono" id="rootPath"></p></div><button class="btn" type="button" id="pickRoot" data-i18n="change"></button></div>
         <div class="row"><div><b data-i18n="archiveDays"></b><p data-i18n="archiveDaysS"></p></div>
@@ -56,6 +64,8 @@
           <div class="seg" data-set="lang"><button type="button" data-v="auto" data-i18n="followSystem"></button><button type="button" data-v="zh">中文</button><button type="button" data-v="en">English</button></div></div>
         <div class="row"><div><b data-i18n="theme"></b></div>
           <div class="seg" data-set="theme"><button type="button" data-v="auto" data-i18n="followSystem"></button><button type="button" data-v="light" data-i18n="light"></button><button type="button" data-v="dark" data-i18n="dark"></button></div></div>
+        <div class="row"><div><b data-i18n="login"></b><p data-i18n="loginS"></p></div><label class="switch"><input type="checkbox" data-set="launchAtLogin"><i></i></label></div>
+        <div class="row"><div><b data-i18n="hidden"></b><p data-i18n="hiddenS"></p></div><label class="switch"><input type="checkbox" data-set="startHidden"><i></i></label></div>
       </div>
     </section>
 
