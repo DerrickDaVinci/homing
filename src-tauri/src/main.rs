@@ -46,7 +46,7 @@ fn cli(args: &[String]) -> i32 {
             let name = std::path::Path::new(&from).file_name().unwrap_or_default();
             let to = core::s(&dir.join(name));
             if args.iter().any(|a| a == "--apply") {
-                match core::relocate(&env, &core::live(), &from, &to) {
+                match core::relocate(&env, &core::live(), &from, &to, &progress) {
                     Ok(p) => {
                         print_plan(&p);
                         p.errors.iter().for_each(|e| eprintln!("warning: {e}"));
@@ -65,7 +65,7 @@ fn cli(args: &[String]) -> i32 {
             }
         }
         "undo" => match core::history(&env).into_iter().find(|r| !r.undone) {
-            Some(r) => match core::undo(&env, &core::live(), r.time) {
+            Some(r) => match core::undo(&env, &core::live(), r.time, &progress) {
                 Ok(p) => {
                     print_plan(&p);
                     0
@@ -84,6 +84,13 @@ fn cli(args: &[String]) -> i32 {
             println!("{HELP}");
             0
         }
+    }
+}
+
+fn progress(done: usize, total: usize) {
+    eprint!("\rupdating session records {done}/{total}");
+    if done == total {
+        eprintln!();
     }
 }
 

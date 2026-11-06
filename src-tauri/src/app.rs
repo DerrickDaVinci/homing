@@ -200,18 +200,25 @@ async fn preview(store: State<'_, Store>, moves: Vec<Move>) -> Result<Vec<Plan>,
 /// Moves one by one. A move that cannot happen comes back with its blockers.
 #[tauri::command]
 async fn relocate(app: AppHandle, store: State<'_, Store>, moves: Vec<Move>) -> Result<Vec<Plan>, ()> {
-    let out = do_relocate(&store, &moves);
+    let out = do_relocate(&app, &store, &moves);
     let _ = app.emit("moved", ());
     Ok(out)
 }
 
-fn do_relocate(store: &Store, moves: &[Move]) -> Vec<Plan> {
+/// Tells every window how far the rewrite of session records has got.
+fn progress(app: &AppHandle) -> impl Fn(usize, usize) + Sync + '_ {
+    move |done, total| {
+        let _ = app.emit("progress", (done, total));
+    }
+}
+
+fn do_relocate(app: &AppHandle, store: &Store, moves: &[Move]) -> Vec<Plan> {
     let live = core::live();
     moves
         .iter()
         .map(|m| {
             let to = store.target(&m.from, m.place);
-            core::relocate(&store.env, &live, &m.from, &to).unwrap_or_else(|e| failed(&m.from, &to, e))
+            core::relocate(&store.env, &live, &m.from, &to, &progress(app)).unwrap_or_else(|e| failed(&m.from, &to, e))
         })
         .collect()
 }
@@ -227,15 +234,15 @@ fn history(store: State<Store>) -> Vec<core::Record> {
 
 #[tauri::command]
 async fn undo(app: AppHandle, store: State<'_, Store>, time: u64) -> Result<Plan, ()> {
-    let out = do_undo(&store, time);
+    let out = do_undo(&app, &store, time);
     let _ = app.emit("moved", ());
     Ok(out)
 }
 
-fn do_undo(store: &Store, time: u64) -> Plan {
+fn do_undo(app: &AppHandle, store: &Store, time: u64) -> Plan {
     let h = core::history(&store.env);
     let (from, to) = h.iter().find(|r| r.time == time).map(|r| (r.plan.to.clone(), r.plan.from.clone())).unwrap_or_default();
-    core::undo(&store.env, &core::live(), time).unwrap_or_else(|e| failed(&from, &to, e))
+    core::undo(&store.env, &core::live(), time, &progress(app)).unwrap_or_else(|e| failed(&from, &to, e))
 }
 
 #[tauri::command]
@@ -322,7 +329,7 @@ async fn ring_drop(app: AppHandle, store: State<'_, Store>, action: String, path
         let _ = app.emit_to("main", "open-preview", &moves);
         return Ok(vec![]);
     }
-    let out = do_relocate(&store, &moves);
+    let out = do_relocate(&app, &store, &moves);
     let _ = app.emit("moved", ());
     Ok(out)
 }
@@ -355,7 +362,7 @@ fn relabel_tray(store: &Store) {
 fn undo_last(app: &AppHandle) {
     let store = app.state::<Store>();
     if let Some(r) = core::history(&store.env).into_iter().find(|r| !r.undone) {
-        let back = do_undo(&store, r.time);
+        let back = do_undo(app, &store, r.time);
         let _ = app.emit("moved", ());
         let _ = app.emit("undone", back);
     }

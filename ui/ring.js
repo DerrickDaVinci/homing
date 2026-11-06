@@ -31,6 +31,7 @@
   let dropped = false;
   let result = null; // { ok, line, sub, moved: [to] }
   let hideTimer;
+  let prog = ''; // "37/121" while session records are rewritten
   // Near a screen edge the ring is shifted, so the cursor may start on top of
   // a segment. Segments only arm once the cursor has clearly moved.
   let start = null;
@@ -57,7 +58,7 @@
 
   function hub() {
     const disc = `<circle cx="${C}" cy="${C}" r="${r - 6}"/>`;
-    if (busy) return disc + `<circle class="spin" cx="${C}" cy="${C}" r="18" stroke-dasharray="70 200"/>`;
+    if (busy) return disc + `<circle class="spin" cx="${C}" cy="${C}" r="18" stroke-dasharray="70 200"/>` + (prog ? `<text x="${C}" y="${C + 36}">${prog}</text>` : '');
     if (result) {
       const undo = result.moved?.length ? `<text class="undo" id="undo" x="${C}" y="${C + 31}">${L.undo}</text>` : '';
       return `${disc}<text class="big ${result.ok ? 'ok' : 'err'}" x="${C}" y="${C - 8}">${result.ok ? '✓' : '!'}</text>
@@ -95,6 +96,7 @@
     busy = false;
     dropped = false;
     result = null;
+    prog = '';
     start = null;
     armed = false;
     render();
@@ -185,6 +187,11 @@
   // The mouse went up: if it was not over the ring, close.
   T.event.listen('ring-release', () => setTimeout(() => { if (!dropped && !busy) invoke('ring_hide'); }, 300));
   T.event.listen('ring-show', reset);
+  T.event.listen('progress', (e) => {
+    if (!busy) return;
+    prog = `${e.payload[0]}/${e.payload[1]}`;
+    render();
+  });
   T.event.listen('settings-changed', (e) => applySettings(e.payload));
   reset();
   invoke('info').then((i) => applySettings(i.settings)).catch(() => {});

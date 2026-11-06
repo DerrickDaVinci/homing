@@ -24,6 +24,7 @@
     sheetPreview: ['预览', 'Preview'], sheetPreviewS: ['下面是将要发生的全部变化。原文件夹只是移动，不会删除任何东西。', 'This is everything that will change. Folders are moved, never deleted.'],
     sheetDone: ['归位完成', 'Done'], sheetDoneS: ['可以在「记录」里随时撤销。', 'You can undo any move from History.'],
     apply: (n) => (zh ? `归位 ${n} 个` : `Move ${n}`), cancel: ['取消', 'Cancel'], done: ['完成', 'Done'],
+    progress: (d, n) => (zh ? `已更新 ${d} / ${n} 个会话文件` : `${d} of ${n} session files updated`),
     working: ['正在移动并更新会话记录，会话多的项目可能要一分钟…', 'Moving and updating session records. Large projects can take a minute…'],
     sessions: (c, x) => [c ? `Claude ${c}` : '', x ? `Codex ${x}` : ''].filter(Boolean).join(' · ') || (zh ? '没有代理会话' : 'No agent sessions'),
     moved: ['已归位', 'Moved'], notMoved: ['没有移动', 'Not moved'],
@@ -233,6 +234,7 @@
     $('#applyBtn').disabled = true;
     $('#cancelBtn').disabled = true;
     $('#busy').hidden = false;
+    $('#busyProg').textContent = '';
     let results = [];
     try {
       results = await invoke('relocate', { moves: pending });
@@ -455,6 +457,7 @@
 
   // The ring and the menu bar act while this window may be hidden.
   T.event.listen('open-preview', (e) => openPreview(e.payload));
+  T.event.listen('progress', (e) => ($('#busyProg').textContent = t('progress', ...e.payload)));
   T.event.listen('moved', () => {
     rescan();
     if ($('#app').dataset.page === 'history') renderHistory();

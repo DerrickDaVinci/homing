@@ -17,7 +17,9 @@
 use rusqlite::{Connection, OpenFlags};
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io::{self, Read};
+use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Mutex;
 use std::path::{Path, PathBuf, MAIN_SEPARATOR_STR as SEP};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -147,40 +149,68 @@ pub fn rewrite(text: &[u8], old: &str, new: &str) -> Option<Vec<u8>> {
     Some(out)
 }
 
-fn read_any(p: &Path) -> io::Result<Vec<u8>> {
-    let b = fs::read(p)?;
-    if has_ext(p, ".zst") {
-        zstd::decode_all(&b[..])
-    } else {
-        Ok(b)
-    }
-}
-
-/// Replace a file atomically, keeping its permissions and compression.
-fn write_any(p: &Path, data: &[u8]) -> io::Result<()> {
-    let packed;
-    let bytes = if has_ext(p, ".zst") {
-        packed = zstd::encode_all(data, 3)?;
-        &packed[..]
-    } else {
-        data
-    };
+/// Rewrite one file line by line into a temporary copy, then swap it in
+/// atomically, keeping permissions and zstd compression. Streaming keeps
+/// memory flat: Codex rollouts can be gigabytes once decompressed. A JSON
+/// string never spans lines, so no path is ever split.
+fn rewrite_file(p: &Path, old: &str, new: &str) -> io::Result<bool> {
+    let zst = has_ext(p, ".zst");
+    let input = fs::File::open(p)?;
+    let mut reader: Box<dyn BufRead> = if zst { Box::new(BufReader::new(zstd::Decoder::new(input)?)) } else { Box::new(BufReader::new(input)) };
     let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let tmp = p.with_file_name(format!(".{name}.homing-tmp"));
-    fs::write(&tmp, bytes)?;
-    if let Ok(m) = fs::metadata(p) {
-        let _ = fs::set_permissions(&tmp, m.permissions());
+    let result = (|| {
+        let file = BufWriter::new(fs::File::create(&tmp)?);
+        let mut out: Box<dyn Write> = if zst { Box::new(zstd::Encoder::new(file, 3)?.auto_finish()) } else { Box::new(file) };
+        let (mut line, mut changed) = (Vec::new(), false);
+        while reader.read_until(b'\n', &mut line)? > 0 {
+            match rewrite(&line, old, new) {
+                Some(l) => {
+                    changed = true;
+                    out.write_all(&l)?;
+                }
+                None => out.write_all(&line)?,
+            }
+            line.clear();
+        }
+        out.flush()?;
+        drop(out); // finishes the zstd frame
+        Ok(changed)
+    })();
+    match result {
+        Ok(true) => {
+            if let Ok(m) = fs::metadata(p) {
+                let _ = fs::set_permissions(&tmp, m.permissions());
+            }
+            fs::rename(&tmp, p).map(|_| true).inspect_err(|_| {
+                let _ = fs::remove_file(&tmp);
+            })
+        }
+        other => {
+            let _ = fs::remove_file(&tmp);
+            other
+        }
     }
-    fs::rename(&tmp, p).inspect_err(|_| {
-        let _ = fs::remove_file(&tmp);
-    })
 }
 
-fn rewrite_file(p: &Path, old: &str, new: &str) -> io::Result<bool> {
-    match rewrite(&read_any(p)?, old, new) {
-        Some(out) => write_any(p, &out).map(|_| true),
-        None => Ok(false),
-    }
+/// Rewrite many files on all cores. Reports (done, total) after each file and
+/// returns the failures.
+fn rewrite_all(files: &[PathBuf], old: &str, new: &str, progress: &(dyn Fn(usize, usize) + Sync)) -> Vec<String> {
+    let (next, done, errors) = (AtomicUsize::new(0), AtomicUsize::new(0), Mutex::new(Vec::new()));
+    let workers = std::thread::available_parallelism().map_or(4, |n| n.get()).min(files.len());
+    std::thread::scope(|scope| {
+        for _ in 0..workers {
+            scope.spawn(|| {
+                while let Some(f) = files.get(next.fetch_add(1, Ordering::Relaxed)) {
+                    if let Err(e) = rewrite_file(f, old, new) {
+                        errors.lock().unwrap().push(format!("{}: {e}", s(f)));
+                    }
+                    progress(done.fetch_add(1, Ordering::Relaxed) + 1, files.len());
+                }
+            });
+        }
+    });
+    errors.into_inner().unwrap()
 }
 
 /// The first JSON string value of `key` in `text`.
@@ -555,9 +585,12 @@ fn is_git_linked(dir: &Path) -> bool {
 
 // ------------------------------------------------------------------ apply
 
+/// Reports (files done, files total) while session records are rewritten.
+pub type Progress<'a> = &'a (dyn Fn(usize, usize) + Sync);
+
 /// Move `from` to `to`, bring every agent along and remember it for undo.
-pub fn relocate(env: &Env, live: &Live, from: &str, to: &str) -> Result<Plan, String> {
-    let p = apply(env, live, from, to)?;
+pub fn relocate(env: &Env, live: &Live, from: &str, to: &str, progress: Progress) -> Result<Plan, String> {
+    let p = apply(env, live, from, to, progress)?;
     let mut h = history(env);
     h.insert(0, Record { time: now(), plan: p.clone(), undone: false });
     h.truncate(200);
@@ -567,7 +600,7 @@ pub fn relocate(env: &Env, live: &Live, from: &str, to: &str) -> Result<Plan, St
 
 /// Move and rewrite. Re-checks everything first (pass a fresh `live()`), so a
 /// stale preview can never cause harm.
-fn apply(env: &Env, live: &Live, from: &str, to: &str) -> Result<Plan, String> {
+fn apply(env: &Env, live: &Live, from: &str, to: &str, progress: Progress) -> Result<Plan, String> {
     let ix = Index::load(env);
     let mut p = plan(env, &ix, live, from, to);
     if !p.blockers.is_empty() {
@@ -582,40 +615,25 @@ fn apply(env: &Env, live: &Live, from: &str, to: &str) -> Result<Plan, String> {
     let cross_device = if cfg!(windows) { 17 } else { 18 };
     fs::rename(from, to).map_err(|e| if e.raw_os_error() == Some(cross_device) { "crossDevice".into() } else { e.to_string() })?;
 
-    let err = &mut p.errors;
-    let mut note = |what: &str, r: io::Result<bool>| {
-        if let Err(e) = r {
-            err.push(format!("{what}: {e}"));
-        }
-    };
-
-    // Claude Code: rename each transcript folder, then fix the paths inside.
+    // Claude Code: rename each transcript folder; its files are rewritten below.
+    let mut files = Vec::new();
     for (d, tail) in ix.claude_for(from) {
         let target = env.claude_projects().join(format!("{}{tail}", claude_dir_name(to)));
         let moved = if target.exists() { merge_dir(&d.dir, &target) } else { fs::rename(&d.dir, &target) };
-        note(&s(&d.dir), moved.map(|_| true));
-        let dir = if target.exists() { &target } else { &d.dir };
-        let mut logs = Vec::new();
-        walk(dir, ".jsonl", &mut logs); // includes subagent transcripts
-        for f in logs {
-            note(&s(&f), rewrite_file(&f, from, to));
+        if let Err(e) = moved {
+            p.errors.push(format!("{}: {e}", s(&d.dir)));
         }
+        walk(if target.exists() { &target } else { &d.dir }, ".jsonl", &mut files); // subagents too
     }
-    for f in ix.app_for(from) {
-        note(&s(f), rewrite_file(f, from, to));
-    }
-
-    // Codex: conversation files, the small config files, then the database.
-    for t in ix.threads_for(from) {
-        if let Some(f) = &t.rollout {
-            note(&s(f), rewrite_file(f, from, to));
-        }
-    }
-    for (f, _) in ix.codex_text_for(from) {
-        note(&s(f), rewrite_file(f, from, to));
-    }
+    // The Claude app's sessions, Codex conversations and config, then the database.
+    files.extend(ix.app_for(from).cloned());
+    files.extend(ix.threads_for(from).filter_map(|t| t.rollout.clone()));
+    files.extend(ix.codex_text_for(from).map(|(f, _)| f.clone()));
+    p.errors.extend(rewrite_all(&files, from, to, progress));
     if let (Some(db), true) = (&ix.codex_db, ix.codex_refs(from)) {
-        note(&s(db), update_codex_db(db, from, to).map(|_| true));
+        if let Err(e) = update_codex_db(db, from, to) {
+            p.errors.push(format!("{}: {e}", s(db)));
+        }
     }
 
     if is_git_linked(Path::new(to)) {
@@ -697,10 +715,10 @@ fn save_history(env: &Env, h: &[Record]) {
 }
 
 /// Put a moved folder back where it was, agents included.
-pub fn undo(env: &Env, live: &Live, time: u64) -> Result<Plan, String> {
+pub fn undo(env: &Env, live: &Live, time: u64, progress: Progress) -> Result<Plan, String> {
     let h = history(env);
     let r = h.iter().find(|r| r.time == time && !r.undone).ok_or("notFound")?;
-    let back = apply(env, live, &r.plan.to, &r.plan.from)?;
+    let back = apply(env, live, &r.plan.to, &r.plan.from, progress)?;
     let mut h = h;
     if let Some(r) = h.iter_mut().find(|r| r.time == time) {
         r.undone = true;
@@ -724,6 +742,54 @@ mod tests {
     fn obj(pairs: &[(&str, &str)]) -> String {
         let body: Vec<String> = pairs.iter().map(|(k, v)| format!("\"{k}\":{}", serde_json::to_string(&p(v)).unwrap())).collect();
         format!("{{{}}}", body.join(","))
+    }
+
+    fn read_any(p: &Path) -> io::Result<Vec<u8>> {
+        let b = fs::read(p)?;
+        if has_ext(p, ".zst") {
+            zstd::decode_all(&b[..])
+        } else {
+            Ok(b)
+        }
+    }
+
+    const QUIET: Progress = &|_, _| {};
+
+    /// Manual timing on a copy of a real rollout (it gets rewritten twice):
+    /// HOMING_BENCH=<file> HOMING_DIR=<project> cargo test --release bench_rewrite -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn bench_rewrite() {
+        let (f, dir) = (PathBuf::from(std::env::var("HOMING_BENCH").unwrap()), std::env::var("HOMING_DIR").unwrap());
+        for (a, b) in [(dir.as_str(), "/NEW"), ("/NEW", dir.as_str())] {
+            let t = std::time::Instant::now();
+            assert!(rewrite_file(&f, a, b).unwrap());
+            println!("{a} -> {b}: {:.1}s", t.elapsed().as_secs_f64());
+        }
+    }
+
+    #[test]
+    fn streaming_rewrite_keeps_compression_and_untouched_files() {
+        let dir = std::env::temp_dir().join(format!("homing-stream-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let lines = "{\"cwd\":\"/D/a\"}\n{\"x\":1}\n{\"cwd\":\"/D/a/b\"}"; // no final newline
+        let (z, plain, other) = (dir.join("r.jsonl.zst"), dir.join("r.jsonl"), dir.join("o.jsonl"));
+        fs::write(&z, zstd::encode_all(lines.as_bytes(), 3).unwrap()).unwrap();
+        fs::write(&plain, lines).unwrap();
+        fs::write(&other, "{\"cwd\":\"/E\"}\n").unwrap();
+        let seen = AtomicUsize::new(0);
+        let errs = rewrite_all(&[z.clone(), plain.clone(), other.clone()], "/D/a", "/P/a", &|d, t| {
+            assert_eq!(t, 3);
+            seen.fetch_max(d, Ordering::Relaxed);
+        });
+        assert!(errs.is_empty() && seen.load(Ordering::Relaxed) == 3);
+        let want = lines.replace("/D/a", "/P/a");
+        assert_eq!(String::from_utf8(read_any(&z).unwrap()).unwrap(), want);
+        assert_eq!(fs::read_to_string(&plain).unwrap(), want);
+        assert_eq!(fs::read_to_string(&other).unwrap(), "{\"cwd\":\"/E\"}\n");
+        assert_eq!(fs::read_dir(&dir).unwrap().count(), 3, "no temporary files left behind");
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -876,7 +942,7 @@ mod tests {
         assert_eq!((preview.claude, preview.claude_app, preview.codex), (3, 1, 2));
         assert!(Path::new(&from).exists(), "preview must not touch anything");
 
-        let done = relocate(&f.env, &Live::default(), &from, &to).unwrap();
+        let done = relocate(&f.env, &Live::default(), &from, &to, QUIET).unwrap();
         assert!(done.errors.is_empty(), "{:?}", done.errors);
         assert!(!Path::new(&from).exists() && Path::new(&to).join("README.md").exists());
 
@@ -897,23 +963,11 @@ mod tests {
 
         let h = history(&f.env);
         assert_eq!(h.len(), 1);
-        undo(&f.env, &Live::default(), h[0].time).unwrap();
+        undo(&f.env, &Live::default(), h[0].time, QUIET).unwrap();
         assert_eq!(snapshot(&f.env), before);
         assert_eq!(db_rows(&f.env), rows_before);
         let h = history(&f.env);
         assert!(h[0].undone && h.len() == 1, "undo marks the record instead of adding one");
-    }
-
-    /// Manual check against a real Codex rollout, read only:
-    /// HOMING_ROLLOUT=<file> HOMING_DIR=<project> cargo test real_rollout -- --ignored --nocapture
-    #[test]
-    #[ignore]
-    fn real_rollout() {
-        let (f, dir) = (std::env::var("HOMING_ROLLOUT").unwrap(), std::env::var("HOMING_DIR").unwrap());
-        let text = read_any(Path::new(&f)).unwrap();
-        let out = rewrite(&text, &dir, "/NEW").unwrap();
-        println!("{} references, {} bytes -> {}", refs(&text, &dir).len(), text.len(), out.len());
-        assert_eq!(rewrite(&out, "/NEW", &dir).unwrap(), text);
     }
 
     #[test]
