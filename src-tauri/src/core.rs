@@ -656,10 +656,13 @@ fn repair_worktrees(from: &str, to: &str) -> bool {
     // against the resolved old location too.
     let from_path = Path::new(from);
     let real_from = from_path.parent().and_then(|d| fs::canonicalize(d).ok()).map(|d| s(&d.join(from_path.file_name().unwrap_or_default())));
+    // git prints forward slashes on Windows too.
+    let norm = |p: &str| if cfg!(windows) { p.replace('\\', "/") } else { p.to_string() };
+    let (from_n, real_n) = (norm(from), real_from.as_deref().map(norm));
     let moved: Vec<String> = list
         .lines()
         .filter_map(|l| l.strip_prefix("worktree "))
-        .filter_map(|w| rest(w, from).or_else(|| rest(w, real_from.as_deref()?)).map(|r| format!("{to}{r}")))
+        .filter_map(|w| rest(w, &from_n).or_else(|| rest(w, real_n.as_deref()?)).map(|r| format!("{to}{r}")))
         .collect();
     let mut args = vec!["worktree", "repair"];
     args.extend(moved.iter().map(String::as_str));
@@ -953,7 +956,7 @@ mod tests {
     fn move_then_undo_restores_everything() {
         let f = fake("move");
         let from = s(&f.env.desktop.join("My App"));
-        let to = s(&f.env.home.join("Projects/My App"));
+        let to = s(&f.env.home.join("Projects").join("My App"));
         let before = snapshot(&f.env);
         let rows_before = db_rows(&f.env);
 
@@ -1004,11 +1007,11 @@ mod tests {
         if !ok {
             return; // no git here
         }
-        let to = s(&f.env.home.join("Projects/My App"));
+        let to = s(&f.env.home.join("Projects").join("My App"));
         relocate(&f.env, &Live::default(), &s(&repo), &to, QUIET).unwrap();
         let out = command("git").args(["-C", &to, "worktree", "list", "--porcelain"]).output().unwrap();
-        let list = String::from_utf8_lossy(&out.stdout);
-        assert!(list.contains(&s(&Path::new(&to).join(".wt").join("feature"))), "{list}");
+        let list = String::from_utf8_lossy(&out.stdout).replace('\\', "/");
+        assert!(list.contains(&s(&Path::new(&to).join(".wt").join("feature")).replace('\\', "/")), "{list}");
         assert!(!list.contains("prunable"), "{list}");
     }
 

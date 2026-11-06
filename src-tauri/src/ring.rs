@@ -80,6 +80,7 @@ fn filee_keys(s: &str) -> Vec<Modifier> {
     v
 }
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))] // the ring is macOS-only for now
 pub enum Signal {
     /// Open the ring at the cursor.
     Show,
