@@ -30,6 +30,8 @@ struct Settings {
     archive_days: u32,
     lang: String,
     theme: String,
+    /// "#RRGGBB" for buttons and the ring, or empty for the built-in teal.
+    accent: String,
     /// Hold these keys while dragging folders to open the homing ring (macOS).
     ring: bool,
     ring_keys: Vec<Modifier>,
@@ -48,6 +50,7 @@ impl Default for Settings {
             archive_days: 30,
             lang: "auto".into(),
             theme: "auto".into(),
+            accent: String::new(),
             ring: true,
             // ⇧: Filee uses ⌘ and Peekless ⌥ for their drag gestures, and
             // ⌃ held before the click turns it into a right-click.
@@ -63,6 +66,10 @@ impl Settings {
     /// Settings as the app may use them, whatever the file or the UI sent.
     fn clean(mut self) -> Self {
         self.ring_keys = ring::normalize(self.ring_keys);
+        let hex = self.accent.len() == 7 && self.accent.starts_with('#') && self.accent[1..].chars().all(|c| c.is_ascii_hexdigit());
+        if !hex {
+            self.accent.clear();
+        }
         for p in &mut self.places {
             p.path = p.path.trim().trim_end_matches(['/', '\\']).to_string();
         }

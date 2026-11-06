@@ -65,6 +65,16 @@
           <div class="seg" data-set="lang"><button type="button" data-v="auto" data-i18n="followSystem"></button><button type="button" data-v="zh">中文</button><button type="button" data-v="en">English</button></div></div>
         <div class="row"><div><b data-i18n="theme"></b></div>
           <div class="seg" data-set="theme"><button type="button" data-v="auto" data-i18n="followSystem"></button><button type="button" data-v="light" data-i18n="light"></button><button type="button" data-v="dark" data-i18n="dark"></button></div></div>
+        <div class="row"><div><b data-i18n="accent"></b><p data-i18n="accentS"></p></div>
+          <div class="swatches" id="swatches">
+            <button type="button" data-c="" style="--c:#0E7A6A"></button>
+            <button type="button" data-c="#F2501F" style="--c:#F2501F"></button>
+            <button type="button" data-c="#1865EE" style="--c:#1865EE"></button>
+            <button type="button" data-c="#6D4AE8" style="--c:#6D4AE8"></button>
+            <button type="button" data-c="#D63A7A" style="--c:#D63A7A"></button>
+            <button type="button" data-c="#2E9E5B" style="--c:#2E9E5B"></button>
+            <label class="custom"><input type="color" id="accentPick"></label>
+          </div></div>
         <div class="row"><div><b data-i18n="login"></b><p data-i18n="loginS"></p></div><label class="switch"><input type="checkbox" data-set="launchAtLogin"><i></i></label></div>
         <div class="row"><div><b data-i18n="hidden"></b><p data-i18n="hiddenS"></p></div><label class="switch"><input type="checkbox" data-set="startHidden"><i></i></label></div>
       </div>
@@ -105,6 +115,7 @@
 <div class="drop" id="drop" hidden><div><b data-i18n="dropNow"></b><span data-i18n="dropNowS"></span></div></div>
 <div class="toast" id="toast"><span id="toastText"></span><button type="button" class="link" id="toastUndo" hidden data-i18n="undo"></button></div>
 <script src="preview-mock.js"></script>
+<script src="theme.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

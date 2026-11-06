@@ -94,6 +94,11 @@ main { position: relative; min-width: 0; min-height: 0; overflow: auto; }
 .place input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
 .place .mono { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .place .btn { height: 30px; font-size: 12.5px; padding: 0 10px; }
+.swatches { display: flex; gap: 8px; align-items: center; flex: none; }
+.swatches button, .swatches .custom { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--panel); background: var(--c); box-shadow: 0 0 0 1px var(--line-2); cursor: pointer; padding: 0; }
+.swatches button[aria-pressed="true"], .swatches .custom.on { box-shadow: 0 0 0 2px var(--ink); }
+.swatches .custom { position: relative; overflow: hidden; background: conic-gradient(#F2501F, #FDDA34, #4AC742, #3FA1F9, #6D4AE8, #D63A7A, #F2501F); }
+.swatches .custom input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .tip { margin: -6px 0 16px; font-size: 13px; color: var(--ink-2); }
 .tip kbd { font: 500 12px var(--f-mono); padding: 1px 6px; border-radius: 5px; border: 1px solid var(--line-2); background: var(--panel); }
 .os-win [data-mac] { display: none !important; }

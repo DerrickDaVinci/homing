@@ -15,12 +15,12 @@
   let segs = [];
   const setPlaces = (places) => (segs = [...(places || []).map((p, i) => ({ id: String(i), label: p.label, icon: FOLDER })), { id: 'preview', label: null, icon: EYE }]);
   const ZH = {
-    preview: '预览', drop: '拖到一项上', cancel: '松手取消', moved: (n) => `已归位 ${n} 个`, undo: '撤销', undone: '已撤销', failed: '没有移动',
-    why: { quitClaude: '先退出 Claude', quitCodex: '先退出 Codex', exists: '目标已有同名', busy: '有程序在用', protected: '系统文件夹', notFolder: '不是文件夹', inside: '不能放进自己', crossDevice: '不同磁盘' },
+    preview: '预览', drop: '拖到一项上', cancel: '松手取消', moved: (n) => `已归位 ${n} 个`, failed: '没有移动',
+    why: { alreadyThere: '已经在这里', quitClaude: '先退出 Claude', quitCodex: '先退出 Codex', exists: '目标已有同名', busy: '有程序在用', protected: '系统文件夹', notFolder: '不是文件夹', inside: '不能放进自己', crossDevice: '不同磁盘' },
   };
   const EN = {
-    preview: 'Preview', drop: 'Drop on one', cancel: 'Release to cancel', moved: (n) => `${n} moved`, undo: 'Undo', undone: 'Undone', failed: 'Not moved',
-    why: { quitClaude: 'Quit Claude first', quitCodex: 'Quit Codex first', exists: 'Name taken', busy: 'Folder in use', protected: 'System folder', notFolder: 'Not a folder', inside: 'Into itself', crossDevice: 'Other disk' },
+    preview: 'Preview', drop: 'Drop on one', cancel: 'Release to cancel', moved: (n) => `${n} moved`, failed: 'Not moved',
+    why: { alreadyThere: 'Already there', quitClaude: 'Quit Claude first', quitCodex: 'Quit Codex first', exists: 'Name taken', busy: 'Folder in use', protected: 'System folder', notFolder: 'Not a folder', inside: 'Into itself', crossDevice: 'Other disk' },
   };
 
   let zh = sysZh;
@@ -60,9 +60,8 @@
     const disc = `<circle cx="${C}" cy="${C}" r="${r - 6}"/>`;
     if (busy) return disc + `<circle class="spin" cx="${C}" cy="${C}" r="18" stroke-dasharray="70 200"/>` + (prog ? `<text x="${C}" y="${C + 36}">${prog}</text>` : '');
     if (result) {
-      const undo = result.moved?.length ? `<text class="undo" id="undo" x="${C}" y="${C + 31}">${L.undo}</text>` : '';
       return `${disc}<text class="big ${result.ok ? 'ok' : 'err'}" x="${C}" y="${C - 8}">${result.ok ? '✓' : '!'}</text>
-        <text x="${C}" y="${C + 11}">${result.line}</text>${result.sub ? `<text x="${C}" y="${C + 26}">${result.sub}</text>` : undo}`;
+        <text x="${C}" y="${C + 11}">${result.line}</text>${result.sub ? `<text x="${C}" y="${C + 26}">${result.sub}</text>` : ''}`;
     }
     return disc + `<text x="${C}" y="${C + 4}">${hot === -1 ? L.cancel : L.drop}</text>`;
   }
@@ -122,31 +121,12 @@
     const bad = plans.filter((p) => p.blockers.length);
     const reason = bad.length ? L.why[bad[0].blockers[0].split(':')[0]] || L.failed : '';
     result = ok.length
-      ? { ok: true, line: L.moved(ok.length), sub: bad.length ? `${L.failed} ${bad.length} · ${reason}` : '', moved: ok.map((p) => p.to) }
+      ? { ok: true, line: L.moved(ok.length), sub: bad.length ? `${L.failed} ${bad.length} · ${reason}` : '' }
       : { ok: false, line: L.failed, sub: reason };
     render();
-    hide(ok.length ? 5000 : 3000);
+    // A glance is enough: undo lives in the menu bar and in History.
+    hide(ok.length && !bad.length ? 700 : 2200);
   }
-
-  async function undo() {
-    const moved = result?.moved || [];
-    clearTimeout(hideTimer);
-    busy = true;
-    render();
-    const h = await invoke('history');
-    for (const r of h.filter((r) => !r.undone && moved.includes(r.plan.to))) await invoke('undo', { time: r.time });
-    busy = false;
-    result = { ok: true, line: L.undone, sub: '' };
-    render();
-    hide(1200);
-  }
-
-  svg.addEventListener('click', (e) => {
-    if (e.target.id === 'undo') undo();
-  });
-  // Keep the result up while the pointer rests on it.
-  svg.addEventListener('mouseenter', () => result && result.moved && clearTimeout(hideTimer));
-  svg.addEventListener('mouseleave', () => result && !busy && hide(1500));
 
   const toLocal = (p) => [p.x / devicePixelRatio, p.y / devicePixelRatio];
 
@@ -179,8 +159,7 @@
     setPlaces(s.places);
     zh = s.lang === 'zh' ? true : s.lang === 'en' ? false : sysZh;
     L = zh ? ZH : EN;
-    if (s.theme === 'light' || s.theme === 'dark') document.documentElement.dataset.theme = s.theme;
-    else delete document.documentElement.dataset.theme;
+    Theme.apply(s);
     render();
   }
 

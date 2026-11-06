@@ -551,6 +551,10 @@ pub fn plan(env: &Env, ix: &Index, live: &Live, from: &str, to: &str) -> Plan {
     } else if protected.iter().any(|x| x == src) || src.parent().is_none() {
         b.push("protected".into());
     } else {
+        if Path::new(to) == src {
+            b.push("alreadyThere".into());
+            return p;
+        }
         if Path::new(to).exists() {
             b.push("exists".into());
         }
@@ -636,13 +640,30 @@ fn apply(env: &Env, live: &Live, from: &str, to: &str, progress: Progress) -> Re
         }
     }
 
-    if is_git_linked(Path::new(to)) {
-        let ok = command("git").args(["-C", to, "worktree", "repair"]).output().is_ok_and(|o| o.status.success());
-        if !ok {
-            p.errors.push("gitRepair".into());
-        }
+    if is_git_linked(Path::new(to)) && !repair_worktrees(from, to) {
+        p.errors.push("gitRepair".into());
     }
     Ok(p)
+}
+
+/// Point git at the new paths. A plain `git worktree repair` fixes the links
+/// from inside the moved folder; worktrees that moved along with it (nested in
+/// it) must be named by their new path or git marks them prunable.
+fn repair_worktrees(from: &str, to: &str) -> bool {
+    let git = |args: &[&str]| command("git").arg("-C").arg(to).args(args).output().ok().filter(|o| o.status.success());
+    let list = git(&["worktree", "list", "--porcelain"]).map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default();
+    // git reports resolved paths (/var is /private/var on macOS), so compare
+    // against the resolved old location too.
+    let from_path = Path::new(from);
+    let real_from = from_path.parent().and_then(|d| fs::canonicalize(d).ok()).map(|d| s(&d.join(from_path.file_name().unwrap_or_default())));
+    let moved: Vec<String> = list
+        .lines()
+        .filter_map(|l| l.strip_prefix("worktree "))
+        .filter_map(|w| rest(w, from).or_else(|| rest(w, real_from.as_deref()?)).map(|r| format!("{to}{r}")))
+        .collect();
+    let mut args = vec!["worktree", "repair"];
+    args.extend(moved.iter().map(String::as_str));
+    git(&args).is_some()
 }
 
 fn update_codex_db(db: &Path, from: &str, to: &str) -> io::Result<()> {
@@ -970,6 +991,27 @@ mod tests {
         assert!(h[0].undone && h.len() == 1, "undo marks the record instead of adding one");
     }
 
+    /// A worktree inside the moved repository must follow it (it was left
+    /// "prunable" before). Skipped when git is not installed.
+    #[test]
+    fn nested_worktrees_follow_the_repository() {
+        let f = fake("worktree");
+        let repo = f.env.desktop.join("My App");
+        let git = |args: &[&str]| command("git").arg("-C").arg(&repo).args(args).output().map(|o| o.status.success()).unwrap_or(false);
+        let ok = git(&["init", "-q"])
+            && git(&["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "x"])
+            && git(&["worktree", "add", "-q", ".wt/feature", "-b", "feature"]);
+        if !ok {
+            return; // no git here
+        }
+        let to = s(&f.env.home.join("Projects/My App"));
+        relocate(&f.env, &Live::default(), &s(&repo), &to, QUIET).unwrap();
+        let out = command("git").args(["-C", &to, "worktree", "list", "--porcelain"]).output().unwrap();
+        let list = String::from_utf8_lossy(&out.stdout);
+        assert!(list.contains(&s(&Path::new(&to).join(".wt").join("feature"))), "{list}");
+        assert!(!list.contains("prunable"), "{list}");
+    }
+
     #[test]
     fn refuses_unsafe_moves() {
         let f = fake("refuse");
@@ -980,6 +1022,7 @@ mod tests {
         assert_eq!(blockers(&from, &s(&f.env.desktop), Running::default()), ["exists"]);
         assert_eq!(blockers(&s(&f.env.desktop), "/x", Running::default()), ["protected"]);
         assert_eq!(blockers("/no/such", "/x", Running::default()), ["missing"]);
+        assert_eq!(blockers(&from, &from, Running::default()), ["alreadyThere"]);
         assert_eq!(blockers(&from, "/x/y", Running { claude_app: true, codex: true }), ["quitClaude", "quitCodex"]);
     }
 }

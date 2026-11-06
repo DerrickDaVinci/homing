@@ -23,7 +23,6 @@
   .rh .big { fill: var(--ink); font: 700 15px var(--f-ui); }
   .rh .ok { fill: var(--accent); }
   .rh .err { fill: var(--high); }
-  .rh .undo { fill: var(--accent); font-weight: 650; cursor: pointer; text-decoration: underline; }
   .spin { transform-origin: 150px 150px; animation: spin .8s linear infinite; fill: none !important; stroke: var(--accent) !important; stroke-width: 3; stroke-linecap: round; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .count { fill: var(--accent); }
@@ -33,6 +32,7 @@
 <body>
 <svg id="ring" viewBox="0 0 300 300" aria-hidden="true"></svg>
 <script src="preview-mock.js"></script>
+<script src="theme.js"></script>
 <script src="ring.js"></script>
 </body>
 </html>

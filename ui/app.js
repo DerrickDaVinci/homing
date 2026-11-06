@@ -37,6 +37,8 @@
     addPlace: ['添加位置…', 'Add place…'], change: ['更改…', 'Change…'], remove: ['移除', 'Remove'],
     archiveDays: ['多久没动算"冷"项目', 'When a project counts as cold'], archiveDaysS: ['冷项目默认放进第 2 个位置。', 'Cold projects default to the 2nd place.'],
     days: (n) => (zh ? `${n} 天` : `${n} days`),
+    accent: ['主题色', 'Accent color'], accentS: ['按钮、开关和归位环用的颜色。最后一个可以自己选任何颜色。', 'Used for buttons, switches and the ring. Pick any color with the last one.'],
+    b_alreadyThere: ['已经在这里了。', 'Already there.'],
     lang: ['界面语言', 'Language'], theme: ['外观', 'Appearance'], followSystem: ['跟随系统', 'System'], light: ['浅色', 'Light'], dark: ['深色', 'Dark'],
     aboutTag: ['把 AI 代理开的项目从桌面搬走，对话记录一条不丢。', 'Move AI-agent projects off your Desktop without losing a single conversation.'],
     aWhat: ['会更新什么', 'What gets updated'],
@@ -54,7 +56,7 @@
     clash: (who, k) => (zh ? `${who} 也用 ${k} 拖动，两个环会一起弹出。换一个不包含 ${k} 的组合吧。` : `${who} also uses ${k} while dragging, so both would open. Pick keys without ${k}.`),
     used: (list) => (zh ? `这台电脑上已被占用：${list}` : `Already used here: ${list}`),
     dragSuffix: [' + 拖动', ' + drag'],
-    ringAfter: ['松手之后', 'After you drop'], ringAfterS: ['"直接归位"会立刻移动，环中间保留撤销；"先预览"会打开主窗口让你确认。', '"Move right away" moves at once and keeps Undo in the ring; "Preview first" opens the window to confirm.'],
+    ringAfter: ['松手之后', 'After you drop'], ringAfterS: ['"直接归位"松手就移动，可以在菜单栏或「记录」里撤销；"先预览"会打开主窗口让你确认。', '"Move right away" moves on release; undo from the menu bar or History. "Preview first" opens the window to confirm.'],
     ringDirect: ['直接归位', 'Move right away'], ringAsk: ['先预览', 'Preview first'],
     login: ['开机自动启动', 'Open at login'], loginS: ['登录后在菜单栏待命，归位环随时可用。', 'Waits in the menu bar after you log in, ring ready.'],
     hidden: ['启动时不显示窗口', 'Start without a window'], hiddenS: ['只在菜单栏待命，需要时点图标打开。', 'Stay in the menu bar until you open it.'],
@@ -110,11 +112,7 @@
     document.documentElement.lang = zh ? 'zh-CN' : 'en';
     $$('[data-i18n]').forEach((el) => (el.textContent = t(el.dataset.i18n)));
   }
-  function applyTheme() {
-    const th = settings().theme;
-    if (th === 'light' || th === 'dark') document.documentElement.dataset.theme = th;
-    else delete document.documentElement.dataset.theme;
-  }
+  const applyTheme = () => Theme.apply(settings());
   async function save() {
     S.info.settings = await invoke('set_settings', { settings: settings() });
   }
@@ -320,6 +318,10 @@
     $$('input[data-set]').forEach((i) => (i.checked = !!s[i.dataset.set]));
     $$('[data-needs]').forEach((el) => el.classList.toggle('off', !s[el.dataset.needs]));
     $('#ringOnS').textContent = t('ringOnS', ringKey());
+    const preset = [...$$('#swatches button')].some((b) => b.dataset.c === (s.accent || ''));
+    $$('#swatches button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.c === (s.accent || ''))));
+    $('#swatches .custom').classList.toggle('on', !preset);
+    $('#accentPick').value = s.accent || '#0E7A6A';
     if (!recording) $('#recorder').textContent = ringKey() + t('dragSuffix');
     // Another tool opens too when all of its keys are among ours.
     const others = S.info.otherRings || [];
@@ -381,6 +383,22 @@
     renderAll();
     rescan();
   }
+  async function setAccent(c) {
+    settings().accent = c;
+    applyTheme();
+    renderSettings();
+    await save();
+  }
+  $('#swatches').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-c]');
+    if (b) setAccent(b.dataset.c);
+  });
+  $('#accentPick').addEventListener('input', (e) => {
+    settings().accent = e.target.value; // live preview while dragging in the picker
+    applyTheme();
+  });
+  $('#accentPick').addEventListener('change', (e) => setAccent(e.target.value));
+
   $('#addPlace').addEventListener('click', async () => {
     const path = await invoke('pick_folder');
     if (path) places().push({ label: '', path }), savePlaces();

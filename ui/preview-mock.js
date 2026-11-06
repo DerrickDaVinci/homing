@@ -16,7 +16,7 @@
     p('stock-notes', 57, 0, 0, 232, false),
     p('old-portfolio', 108, 0, 0, 0, true),
   ];
-  let settings = { places: [{ label: 'Projects', path: `${home}/Projects` }, { label: 'Archive', path: `${home}/Projects/Archive` }], archiveDays: 30, lang: 'auto', theme: 'auto', ring: true, ringKeys: ['shift'], ringPreview: false, launchAtLogin: false, startHidden: false };
+  let settings = { places: [{ label: 'Projects', path: `${home}/Projects` }, { label: 'Archive', path: `${home}/Projects/Archive` }], archiveDays: 30, lang: 'auto', theme: 'auto', accent: '', ring: true, ringKeys: ['shift'], ringPreview: false, launchAtLogin: false, startHidden: false };
   let history = [];
   const plan = (m) => {
     const pr = projects.find((x) => x.path === m.from) || { claude: 0, claude_app: 0, codex: 0, name: m.from.split('/').pop() };

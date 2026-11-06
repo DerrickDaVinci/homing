@@ -25,9 +25,10 @@ Homing is the move that keeps the links.
 
 ## What it does
 
-- **Hold ⇧ and drag (macOS).** Drag a project folder from the Desktop or Finder, press ⇧, and a ring opens under the cursor with your places (**Projects** and **Archive** to start with) and **Preview**. Release on one and the folder is moved, sessions included, with **Undo** right in the middle of the ring. Release in the middle to cancel. No Accessibility permission needed; Homing waits in the menu bar.
+- **Hold ⇧ and drag (macOS).** Drag a project folder from the Desktop or Finder, press ⇧, and a ring opens under the cursor with your places (**Projects** and **Archive** to start with) and **Preview**. Release on one and the folder is moved, sessions included; **Undo Last Move** sits in the menu bar. Release in the middle to cancel. No Accessibility permission needed; Homing waits in the menu bar.
 - **Your keys, no clashes.** Record any combination of ⌃ ⌥ ⇧ ⌘ in Settings (⇧ by default, because ⌃ held before a click makes it a right-click). The ring opens only for exactly those keys, and Homing reads the drag gestures of [Filee](https://github.com/KnifeLemon/Filee) (⌘) and [Peekless](https://github.com/DerrickDaVinci/peekless) (⌥) on your machine and warns you if your choice would open theirs too.
 - **One list, one button.** Open Homing and see every project folder on your Desktop: when you last touched it and how many Claude and Codex sessions belong to it. By default active projects go to `~/Projects` and ones untouched for 30 days to `~/Projects/Archive`. Press **Preview**, then **Move**.
+- **Your colors.** Pick an accent color for buttons and the ring, or any color you like.
 - **Your own places.** Rename, change, add or remove destinations (up to five) in Settings: an external disk, iCloud, a client folder. Each one is a segment on the ring and a group in the window.
 - **Drop any folder** on the window to preview moving just that one.
 - **Agents follow the folder.** Homing rewrites the stored paths so sessions resume from the new location.
@@ -47,7 +48,7 @@ Only JSON and TOML string values that **start with** the old path are rewritten.
 
 ## Safety
 
-- **Nothing moves by accident.** The window and the CLI only move after you confirm a preview (`--apply`); the ring moves when you release on a destination, and keeps Undo there and in the menu bar.
+- **Nothing moves by accident.** The window and the CLI only move after you confirm a preview (`--apply`); the ring moves when you release on a destination, with Undo in the menu bar and in History.
 - **Backups.** Before each move Homing copies the small index files it is about to change (the Codex database, the Claude app's session files, `config.toml`) to `~/Library/Application Support/app.homing.desktop/backups` (`%APPDATA%` on Windows). The last 10 are kept. Transcripts are not copied, because they can be gigabytes. They are replaced atomically and are restored by Undo.
 - **Never deletes.** Folders are moved with a single rename on the same disk. Moves across disks are refused.
 - **No network, no telemetry, no account.**
@@ -115,7 +116,7 @@ The UI is plain HTML, CSS and JS in `ui/` with no build step. Open `ui/index.htm
 
 归位做的就是"挪文件夹，但不断关联"：
 
-- **按住 ⇧ 拖动（macOS）**：从桌面或访达拖动项目文件夹时按住 ⇧，光标旁会弹出归位环，上面是你设好的存放位置（默认是 Projects 和 Archive）和【预览】。拖到一格松手就搬好了，会话一起带走，环中间留着【撤销】。拖到中间松手即取消。不需要辅助功能权限，Homing 平时待在菜单栏。
+- **按住 ⇧ 拖动（macOS）**：从桌面或访达拖动项目文件夹时按住 ⇧，光标旁会弹出归位环，上面是你设好的存放位置（默认是 Projects 和 Archive）和【预览】。拖到一格松手就搬好了，会话一起带走；菜单栏里随时可以撤销上一次归位。拖到中间松手即取消。不需要辅助功能权限，Homing 平时待在菜单栏。
 - **按键自己定，不和别的工具抢**：在设置里录制任意 ⌃ ⌥ ⇧ ⌘ 组合（默认 ⇧，因为先按住 ⌃ 再点按会变成右键），只有正好按着这组键才会弹出归位环。Homing 会读取你电脑上 Filee（⌘）和遮遮（⌥）的拖动手势设置，如果你选的组合会让它们的环也一起弹出，会提前提醒你。
 - **一个列表，一个按钮**：打开就能看到桌面上所有项目文件夹，每个项目最近什么时候动过、有多少 Claude 和 Codex 会话。默认最近 30 天动过的放进 `~/Projects`，更久没动的放进 `~/Projects/Archive`。存放位置可以在设置里改名、换文件夹、增删（最多 5 个），比如外接硬盘、iCloud、客户文件夹；每个位置就是归位环上的一格。点【预览归位】，确认后点【归位】。
 - **拖进窗口**：任何文件夹拖进来，就只预览和处理这一个。
