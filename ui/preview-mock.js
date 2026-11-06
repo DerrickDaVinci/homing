@@ -16,11 +16,11 @@
     p('stock-notes', 57, 0, 0, 232, false),
     p('old-portfolio', 108, 0, 0, 0, true),
   ];
-  let settings = { root: `${home}/Projects`, archiveDays: 30, lang: 'auto', theme: 'auto', ring: true, ringKeys: ['shift'], ringPreview: false, launchAtLogin: false, startHidden: false };
+  let settings = { places: [{ label: 'Projects', path: `${home}/Projects` }, { label: 'Archive', path: `${home}/Projects/Archive` }], archiveDays: 30, lang: 'auto', theme: 'auto', ring: true, ringKeys: ['shift'], ringPreview: false, launchAtLogin: false, startHidden: false };
   let history = [];
   const plan = (m) => {
     const pr = projects.find((x) => x.path === m.from) || { claude: 0, claude_app: 0, codex: 0, name: m.from.split('/').pop() };
-    const to = `${settings.root}${m.archive ? '/Archive' : ''}/${pr.name}`;
+    const to = `${(settings.places[m.place] || settings.places[0]).path}/${pr.name}`;
     const blockers = pr.name === 'weather-bot' ? ['quitClaude'] : [];
     const notes = pr.name === 'stock-notes' ? ['venv'] : [];
     return { from: m.from, to, claude: pr.claude, claude_app: pr.claude_app, codex: pr.codex, blockers, notes, errors: [] };
@@ -28,7 +28,7 @@
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const handlers = {
     info: () => ({ version: '0.1.0', platform: 'macos', home, desktop: `${home}/Desktop`, settings, otherRings: [{ name: 'Filee', keys: ['command'] }, { name: 'Peekless', keys: ['option'] }] }),
-    set_settings: ({ settings: s }) => void (settings = s),
+    set_settings: ({ settings: s }) => (settings = s),
     scan: async () => (await wait(300), { desktop_ok: true, projects, running: { claude_app: true, codex: false } }),
     preview: async ({ moves }) => (await wait(300), moves.map(plan)),
     relocate: async ({ moves }) => {
@@ -43,8 +43,8 @@
       if (r) r.undone = true;
       return { ...r.plan, from: r.plan.to, to: r.plan.from, blockers: [] };
     },
-    pick_root: () => null,
-    ring_drop: async ({ action, paths }) => (await wait(600), paths.map((from) => plan({ from, archive: action === 'archive' }))),
+    pick_folder: () => `${home}/Volumes/Backup/Old projects`,
+    ring_drop: async ({ action, paths }) => (await wait(600), paths.map((from) => plan({ from, place: Number(action) || 0 }))),
     ring_hide: () => {},
     reveal: () => {},
   };

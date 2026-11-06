@@ -13,12 +13,10 @@
     tagline: ['归位 · 桌面项目回家', 'Projects off your Desktop'],
     navDesk: ['桌面', 'Desktop'], navHistory: ['记录', 'History'], navSettings: ['设置', 'Settings'], navAbout: ['关于', 'About'],
     deskTitle: ['桌面', 'Desktop'], rescan: ['重新扫描', 'Rescan'], scanning: ['正在扫描…', 'Scanning…'],
-    deskSub: (n, root) => (zh ? `桌面上有 ${n} 个项目文件夹。归位会把它们搬到 ${root}，Claude 和 Codex 的对话跟着走。` : `${n} project folders on your Desktop. Homing moves them to ${root} and takes their Claude and Codex conversations along.`),
+    deskSub: (n) => (zh ? `桌面上有 ${n} 个项目文件夹。归位会把它们搬到你设好的位置，Claude 和 Codex 的对话跟着走。` : `${n} project folders on your Desktop. Homing moves them to your places and takes their Claude and Codex conversations along.`),
     deskEmpty: ['桌面上没有项目文件夹了。', 'No project folders left on your Desktop.'],
     noAccess: ['Homing 还没有权限读取桌面。请在 系统设置 → 隐私与安全性 → 文件与文件夹 里允许 Homing 访问"桌面"，然后点重新扫描。', 'Homing cannot read your Desktop yet. Allow it in System Settings → Privacy & Security → Files and Folders → Desktop, then Rescan.'],
-    toRoot: ['放进项目文件夹', 'To Projects'], toArchive: ['放进归档', 'To Archive'],
-    toRootS: (d) => (zh ? `${d} 天内动过` : `Touched in the last ${d} days`), toArchiveS: (d) => (zh ? `超过 ${d} 天没动` : `Untouched for ${d}+ days`),
-    moveToArchive: ['改为放进归档', 'Archive instead'], moveToRoot: ['改为放进项目文件夹', 'Keep active instead'], reveal: ['在访达中显示', 'Show in folder'],
+    toPlace: (l) => (zh ? `放进「${l}」` : `To ${l}`), swap: ['换一个位置', 'Another place'], reveal: ['在访达中显示', 'Show in folder'],
     previewBtn: ['预览归位', 'Preview'], selected: (n) => (zh ? `已选 ${n} 个，先预览，确认后才会移动` : `${n} selected. Nothing moves until you confirm.`),
     today: ['今天', 'today'], daysAgo: (n) => (zh ? `${n} 天前` : `${n}d ago`), monthsAgo: (n) => (zh ? `${n} 个月前` : `${n}mo ago`),
     runClaude: ['Claude 桌面版正在运行。', 'The Claude app is running. '], runCodex: ['Codex 正在运行。', 'Codex is running. '],
@@ -34,8 +32,9 @@
     undo: ['撤销', 'Undo'], undone: ['已撤销', 'Undone'],
     historySub: ['每次归位都记在这里。撤销会把文件夹和会话记录一起放回原处。', 'Every move is listed here. Undo puts the folder and its sessions back.'],
     historyEmpty: ['还没有归位过任何项目。', 'Nothing moved yet.'],
-    root: ['项目文件夹', 'Projects folder'], change: ['更改…', 'Change…'],
-    archiveDays: ['多久没动算"冷"项目', 'When a project counts as cold'], archiveDaysS: ['冷项目默认放进项目文件夹下的 Archive。', 'Cold projects go to the Archive folder inside it.'],
+    places: ['存放位置', 'Places'], placesS: ['归位环上的每一格，也是窗口里的分组。最多 5 个，名字可以改。最近动过的项目默认放第 1 个，冷项目放第 2 个。', 'Each one is a segment on the ring and a group in the window, up to 5, names editable. Recent projects default to the 1st, cold ones to the 2nd.'],
+    addPlace: ['添加位置…', 'Add place…'], change: ['更改…', 'Change…'], remove: ['移除', 'Remove'],
+    archiveDays: ['多久没动算"冷"项目', 'When a project counts as cold'], archiveDaysS: ['冷项目默认放进第 2 个位置。', 'Cold projects default to the 2nd place.'],
     days: (n) => (zh ? `${n} 天` : `${n} days`),
     lang: ['界面语言', 'Language'], theme: ['外观', 'Appearance'], followSystem: ['跟随系统', 'System'], light: ['浅色', 'Light'], dark: ['深色', 'Dark'],
     aboutTag: ['把 AI 代理开的项目从桌面搬走，对话记录一条不丢。', 'Move AI-agent projects off your Desktop without losing a single conversation.'],
@@ -45,7 +44,7 @@
     aSafeS: ['每次都先预览；正在使用的文件夹不会动；改动前备份索引文件；每次移动都能撤销。', 'Always previewed first; busy folders are left alone; index files are backed up; every move can be undone.'],
     aOffline: ['离线', 'Offline'], aOfflineS: ['不联网，没有统计，没有账号。', 'No network, no telemetry, no account.'],
     aCli: ['命令行', 'Command line'],
-    ringTip: (k) => (zh ? `小技巧：在桌面或访达里按住 <kbd>${k}</kbd> 拖动项目文件夹，光标旁会弹出归位环，拖到「项目」或「归档」松手就搬好了。` : `Tip: hold <kbd>${k}</kbd> while dragging a project folder on the Desktop or in Finder. A ring opens at the cursor: release on Projects or Archive and it is moved.`),
+    ringTip: (k) => (zh ? `小技巧：在桌面或访达里按住 <kbd>${k}</kbd> 拖动项目文件夹，光标旁会弹出归位环，拖到你设好的位置上松手就搬好了。` : `Tip: hold <kbd>${k}</kbd> while dragging a project folder on the Desktop or in Finder. A ring opens at the cursor: release on one of your places and it is moved.`),
     ringOn: ['按住按键拖动时弹出归位环', 'Homing ring while dragging'],
     ringOnS: (k) => (zh ? `在桌面、访达或任何地方拖动文件夹时按住 ${k}。不需要辅助功能权限。Homing 需要在菜单栏运行。` : `Hold ${k} while dragging folders anywhere. No Accessibility permission needed. Homing must be running in the menu bar.`),
     ringKey: ['触发键', 'Trigger keys'], ringKeyS: ['点右边的按钮，按住想用的键（可以组合，比如 ⇧⌘），松开即保存。只有正好按着这组键才会弹出归位环。拖动开始后再按也可以。', 'Click the button, hold the keys you want (combinations work, like ⇧⌘) and release. The ring opens only for exactly these keys, pressed before or during the drag.'],
@@ -78,7 +77,7 @@
   };
 
   // ------------------------------------------------------------ state
-  const S = { info: null, scan: null, archive: new Map(), off: new Set(), lastMoved: [] };
+  const S = { info: null, scan: null, place: new Map(), off: new Set(), lastMoved: [] };
   const settings = () => S.info.settings;
   const tilde = (p) => (p && S.info && p.startsWith(S.info.home) ? '~' + p.slice(S.info.home.length) : p);
   const base = (p) => p.split(/[\\/]/).filter(Boolean).pop() || p;
@@ -87,7 +86,12 @@
     return d < 1 ? t('today') : d < 60 ? t('daysAgo', d) : t('monthsAgo', Math.floor(d / 30));
   };
   const cold = (p) => Date.now() / 1000 - p.active > settings().archiveDays * 86400;
-  const isArchive = (p) => (S.archive.has(p.path) ? S.archive.get(p.path) : cold(p));
+  const places = () => settings().places;
+  // A project's place: picked by hand, else the 2nd place when cold.
+  const placeOf = (p) => {
+    const i = S.place.has(p.path) ? S.place.get(p.path) : cold(p) ? 1 : 0;
+    return i < places().length ? i : 0;
+  };
   const KEY = { control: '⌃', option: '⌥', shift: '⇧', command: '⌘' };
   const ORDER = ['control', 'option', 'shift', 'command'];
   const keyLabel = (keys) => ORDER.filter((k) => keys.includes(k)).map((k) => KEY[k]).join('');
@@ -111,7 +115,7 @@
     else delete document.documentElement.dataset.theme;
   }
   async function save() {
-    await invoke('set_settings', { settings: settings() });
+    S.info.settings = await invoke('set_settings', { settings: settings() });
   }
 
   // ------------------------------------------------------------ desktop
@@ -125,10 +129,9 @@
   function renderDesk() {
     if (!S.scan) return;
     const ps = S.scan.projects;
-    const d = settings().archiveDays;
     $('#ringTip').hidden = !settings().ring;
     $('#ringTip').innerHTML = t('ringTip', ringKey());
-    $('#deskSub').textContent = !S.scan.desktop_ok ? t('noAccess') : ps.length ? t('deskSub', ps.length, tilde(settings().root)) : t('deskEmpty');
+    $('#deskSub').textContent = !S.scan.desktop_ok ? t('noAccess') : ps.length ? t('deskSub', ps.length) : t('deskEmpty');
 
     const run = S.scan.running;
     const hit = (k) => ps.some((p) => (k === 'claude' ? p.claude_app : p.codex) > 0);
@@ -136,14 +139,11 @@
     $('#runningBanner').hidden = !parts.length;
     $('#runningBanner').textContent = parts.join('') + t('runHint');
 
-    const groups = [
-      { archive: false, title: t('toRoot'), sub: t('toRootS', d), items: ps.filter((p) => !isArchive(p)) },
-      { archive: true, title: t('toArchive'), sub: t('toArchiveS', d), items: ps.filter(isArchive) },
-    ];
-    $('#groups').innerHTML = groups
+    $('#groups').innerHTML = places()
+      .map((pl, i) => ({ pl, items: ps.filter((p) => placeOf(p) === i) }))
       .filter((g) => g.items.length)
-      .map((g) => `<div class="group-title"><b>${esc(g.title)}</b><span>${esc(g.sub)}</span></div>
-        <ul class="projects">${g.items.map((p) => row(p, g.archive)).join('')}</ul>`)
+      .map((g) => `<div class="group-title"><b>${esc(t('toPlace', g.pl.label))}</b><span>${esc(tilde(g.pl.path))}</span></div>
+        <ul class="projects">${g.items.map(row).join('')}</ul>`)
       .join('');
     const n = ps.filter((p) => !S.off.has(p.path)).length;
     $('#bar').hidden = !ps.length;
@@ -151,7 +151,7 @@
     $('#previewBtn').disabled = !n;
   }
 
-  function row(p, archive) {
+  function row(p) {
     const on = !S.off.has(p.path);
     const claude = Math.max(p.claude, p.claude_app);
     const chips = [
@@ -164,7 +164,7 @@
       <input type="checkbox" ${on ? 'checked' : ''} tabindex="-1">
       <div><div class="nm">${esc(p.name)}</div><div class="meta">${chips}</div></div>
       <div class="acts">
-        <button type="button" class="icon-btn" data-act="swap" title="${esc(t(archive ? 'moveToRoot' : 'moveToArchive'))}">${ICON.swap}</button>
+        ${places().length > 1 ? `<button type="button" class="icon-btn" data-act="swap" title="${esc(t('swap'))}">${ICON.swap}</button>` : ''}
         <button type="button" class="icon-btn" data-act="reveal" title="${esc(t('reveal'))}">${ICON.reveal}</button>
       </div></li>`;
   }
@@ -177,7 +177,7 @@
     if (act === 'reveal') return invoke('reveal', { path });
     if (act === 'swap') {
       const p = S.scan.projects.find((x) => x.path === path);
-      S.archive.set(path, !isArchive(p));
+      S.place.set(path, (placeOf(p) + 1) % places().length);
     } else if (S.off.has(path)) S.off.delete(path);
     else S.off.add(path);
     renderDesk();
@@ -185,7 +185,7 @@
 
   $('#rescan').addEventListener('click', rescan);
   $('#previewBtn').addEventListener('click', () => {
-    const moves = S.scan.projects.filter((p) => !S.off.has(p.path)).map((p) => ({ from: p.path, archive: isArchive(p) }));
+    const moves = S.scan.projects.filter((p) => !S.off.has(p.path)).map((p) => ({ from: p.path, place: placeOf(p) }));
     openPreview(moves);
   });
 
@@ -304,7 +304,14 @@
   // ------------------------------------------------------------ settings
   function renderSettings() {
     const s = settings();
-    $('#rootPath').textContent = tilde(s.root);
+    $('#addPlace').disabled = s.places.length >= 5;
+    $('#places').innerHTML = s.places
+      .map((pl, i) => `<div class="place" data-i="${i}"><span class="n">${i + 1}</span>
+        <input maxlength="8" value="${esc(pl.label)}" aria-label="${esc(t('places'))} ${i + 1}">
+        <span class="mono" title="${esc(pl.path)}">${esc(tilde(pl.path))}</span>
+        <button class="btn" type="button" data-act="change">${esc(t('change'))}</button>
+        <button class="btn" type="button" data-act="remove" ${s.places.length < 2 ? 'disabled' : ''}>${esc(t('remove'))}</button></div>`)
+      .join('');
     $('#archiveDays').value = s.archiveDays;
     $('#archiveDaysOut').textContent = t('days', s.archiveDays);
     $$('.seg[data-set]').forEach((seg) => seg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === String(s[seg.dataset.set])))));
@@ -367,13 +374,28 @@
     }),
   );
 
-  $('#pickRoot').addEventListener('click', async () => {
-    const dir = await invoke('pick_root');
-    if (!dir) return;
-    settings().root = dir;
+  async function savePlaces() {
     await save();
-    renderSettings();
+    renderAll();
     rescan();
+  }
+  $('#addPlace').addEventListener('click', async () => {
+    const path = await invoke('pick_folder');
+    if (path) places().push({ label: '', path }), savePlaces();
+  });
+  $('#places').addEventListener('click', async (e) => {
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    const i = Number(e.target.closest('.place')?.dataset.i);
+    if (act === 'remove') places().splice(i, 1), S.place.clear(), savePlaces();
+    if (act === 'change') {
+      const path = await invoke('pick_folder');
+      if (path) (places()[i].path = path), savePlaces();
+    }
+  });
+  $('#places').addEventListener('change', (e) => {
+    const i = Number(e.target.closest('.place')?.dataset.i);
+    places()[i].label = e.target.value.trim();
+    savePlaces();
   });
   $('#archiveDays').addEventListener('input', (e) => {
     settings().archiveDays = Number(e.target.value);
@@ -427,7 +449,7 @@
     if (type === 'enter' || type === 'over') $('#drop').hidden = false;
     else $('#drop').hidden = true;
     if (type === 'drop' && ev.payload.paths?.length && $('#sheet').hidden) {
-      openPreview(ev.payload.paths.map((from) => ({ from, archive: false })));
+      openPreview(ev.payload.paths.map((from) => ({ from, place: 0 })));
     }
   });
 

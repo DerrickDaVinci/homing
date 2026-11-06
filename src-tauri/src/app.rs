@@ -12,12 +12,21 @@ use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_dialog::DialogExt;
 
+/// A destination: a segment on the ring and a group in the window.
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+struct Place {
+    label: String,
+    path: String,
+}
+
+const MAX_PLACES: usize = 5;
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 struct Settings {
-    /// Where active projects go; cold ones go to `<root>/Archive`.
-    root: String,
-    /// Projects untouched for this many days are suggested for the archive.
+    /// Recently touched projects go to the first place, cold ones to the second.
+    places: Vec<Place>,
+    /// Projects untouched for this many days count as cold.
     archive_days: u32,
     lang: String,
     theme: String,
@@ -32,9 +41,10 @@ struct Settings {
 
 impl Default for Settings {
     fn default() -> Self {
-        let root = dirs::home_dir().map(|h| core::s(&h.join("Projects"))).unwrap_or_default();
+        let root = dirs::home_dir().unwrap_or_default().join("Projects");
+        let place = |label: &str, p: PathBuf| Place { label: label.into(), path: core::s(&p) };
         Settings {
-            root,
+            places: vec![place("Projects", root.clone()), place("Archive", root.join("Archive"))],
             archive_days: 30,
             lang: "auto".into(),
             theme: "auto".into(),
@@ -49,6 +59,27 @@ impl Default for Settings {
     }
 }
 
+impl Settings {
+    /// Settings as the app may use them, whatever the file or the UI sent.
+    fn clean(mut self) -> Self {
+        self.ring_keys = ring::normalize(self.ring_keys);
+        for p in &mut self.places {
+            p.path = p.path.trim().trim_end_matches(['/', '\\']).to_string();
+        }
+        self.places.retain(|p| !p.path.is_empty());
+        self.places.truncate(MAX_PLACES);
+        if self.places.is_empty() {
+            self.places = Settings::default().places;
+        }
+        for p in &mut self.places {
+            if p.label.trim().is_empty() {
+                p.label = Path::new(&p.path).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            }
+        }
+        self
+    }
+}
+
 struct Store {
     env: Env,
     settings: Mutex<Settings>,
@@ -59,11 +90,11 @@ impl Store {
     fn settings(&self) -> Settings {
         self.settings.lock().unwrap().clone()
     }
-    /// Destination for a folder: the root, or its Archive subfolder.
-    fn target(&self, from: &str, archive: bool) -> String {
-        let root = PathBuf::from(self.settings().root);
-        let dir = if archive { root.join("Archive") } else { root };
-        core::s(&dir.join(Path::new(from).file_name().unwrap_or_default()))
+    /// Destination for a folder in one of the places (the first if unknown).
+    fn target(&self, from: &str, place: usize) -> String {
+        let places = self.settings().places;
+        let dir = places.get(place).or(places.first()).map(|p| p.path.clone()).unwrap_or_default();
+        core::s(&Path::new(&dir).join(Path::new(from).file_name().unwrap_or_default()))
     }
     fn zh(&self) -> bool {
         match self.settings().lang.as_str() {
@@ -95,7 +126,8 @@ fn settings_file(app: &AppHandle) -> Option<PathBuf> {
 #[derive(Deserialize, Serialize, Clone)]
 struct Move {
     from: String,
-    archive: bool,
+    /// Index into `Settings::places`.
+    place: usize,
 }
 
 #[derive(Serialize)]
@@ -131,9 +163,10 @@ fn info(app: AppHandle, store: State<Store>) -> Info {
     }
 }
 
+/// Saves and returns the settings as cleaned (labels filled in, limits applied).
 #[tauri::command]
-fn set_settings(app: AppHandle, store: State<Store>, mut settings: Settings) {
-    settings.ring_keys = ring::normalize(settings.ring_keys);
+fn set_settings(app: AppHandle, store: State<Store>, settings: Settings) -> Settings {
+    let settings = settings.clean();
     let old = store.settings();
     if let Some(p) = settings_file(&app) {
         let _ = std::fs::create_dir_all(p.parent().unwrap_or(Path::new(".")));
@@ -146,13 +179,14 @@ fn set_settings(app: AppHandle, store: State<Store>, mut settings: Settings) {
     *store.settings.lock().unwrap() = settings.clone();
     relabel_tray(&store);
     let _ = app.emit("settings-changed", &settings);
+    settings
 }
 
 #[tauri::command]
 async fn scan(store: State<'_, Store>) -> Result<Scan, ()> {
     let ix = core::Index::load(&store.env);
-    let root = store.settings().root;
-    let projects = core::projects(&store.env, &ix).into_iter().filter(|p| p.path != root).collect();
+    let places = store.settings().places;
+    let projects = core::projects(&store.env, &ix).into_iter().filter(|p| !places.iter().any(|pl| pl.path == p.path)).collect();
     Ok(Scan { desktop_ok: core::desktop_readable(&store.env), projects, running: core::running() })
 }
 
@@ -160,7 +194,7 @@ async fn scan(store: State<'_, Store>) -> Result<Scan, ()> {
 async fn preview(store: State<'_, Store>, moves: Vec<Move>) -> Result<Vec<Plan>, ()> {
     let ix = core::Index::load(&store.env);
     let live = core::live();
-    Ok(moves.iter().map(|m| core::plan(&store.env, &ix, &live, &m.from, &store.target(&m.from, m.archive))).collect())
+    Ok(moves.iter().map(|m| core::plan(&store.env, &ix, &live, &m.from, &store.target(&m.from, m.place))).collect())
 }
 
 /// Moves one by one. A move that cannot happen comes back with its blockers.
@@ -176,7 +210,7 @@ fn do_relocate(store: &Store, moves: &[Move]) -> Vec<Plan> {
     moves
         .iter()
         .map(|m| {
-            let to = store.target(&m.from, m.archive);
+            let to = store.target(&m.from, m.place);
             core::relocate(&store.env, &live, &m.from, &to).unwrap_or_else(|e| failed(&m.from, &to, e))
         })
         .collect()
@@ -205,7 +239,7 @@ fn do_undo(store: &Store, time: u64) -> Plan {
 }
 
 #[tauri::command]
-async fn pick_root(app: AppHandle) -> Option<String> {
+async fn pick_folder(app: AppHandle) -> Option<String> {
     app.dialog().file().blocking_pick_folder().and_then(|f| f.into_path().ok()).map(|p| core::s(&p))
 }
 
@@ -278,10 +312,11 @@ fn ring_origin(cx: f64, cy: f64, size: f64, area: Option<[f64; 4]>) -> (f64, f64
     (x, y)
 }
 
-/// Folders dropped on the ring: "root", "archive" or "preview".
+/// Folders dropped on the ring: on a place (its index) or on "preview".
 #[tauri::command]
 async fn ring_drop(app: AppHandle, store: State<'_, Store>, action: String, paths: Vec<String>) -> Result<Vec<Plan>, ()> {
-    let moves: Vec<Move> = paths.into_iter().map(|from| Move { from, archive: action == "archive" }).collect();
+    let place = action.parse().unwrap_or(0);
+    let moves: Vec<Move> = paths.into_iter().map(|from| Move { from, place }).collect();
     if action == "preview" || store.settings().ring_preview {
         show_main(&app);
         let _ = app.emit_to("main", "open-preview", &moves);
@@ -347,9 +382,11 @@ pub fn run() {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             let handle = app.handle().clone();
-            let mut settings: Settings =
-                settings_file(&handle).and_then(|p| std::fs::read(p).ok()).and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
-            settings.ring_keys = ring::normalize(settings.ring_keys);
+            let settings = settings_file(&handle)
+                .and_then(|p| std::fs::read(p).ok())
+                .and_then(|b| serde_json::from_slice::<Settings>(&b).ok())
+                .unwrap_or_default()
+                .clean();
             if std::env::args().any(|a| a == "--hidden") || settings.start_hidden {
                 if let Some(w) = app.get_webview_window("main") {
                     let _ = w.hide();
@@ -401,7 +438,7 @@ pub fn run() {
             );
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![info, set_settings, scan, preview, relocate, history, undo, pick_root, reveal, ring_drop, ring_hide])
+        .invoke_handler(tauri::generate_handler![info, set_settings, scan, preview, relocate, history, undo, pick_folder, reveal, ring_drop, ring_hide])
         .on_window_event(|window, event| {
             // Closing the window keeps Homing in the menu bar, ready for the ring.
             if let (WindowEvent::CloseRequested { api, .. }, "main") = (event, window.label()) {
@@ -435,8 +472,18 @@ mod tests {
 
     #[test]
     fn old_settings_files_still_load() {
-        let s: Settings = serde_json::from_str(r#"{"root":"/x","archiveDays":10}"#).unwrap();
+        let s = serde_json::from_str::<Settings>(r#"{"root":"/x","archiveDays":10,"ringKeys":[]}"#).unwrap().clean();
         assert!(s.ring && !s.ring_preview && s.archive_days == 10);
         assert_eq!(s.ring_keys, vec![Modifier::Shift]);
+        assert_eq!(s.places.iter().map(|p| p.label.as_str()).collect::<Vec<_>>(), ["Projects", "Archive"]);
+    }
+
+    #[test]
+    fn places_are_cleaned() {
+        let p = |label: &str, path: &str| Place { label: label.into(), path: path.into() };
+        let s = Settings { places: vec![p("", "/a/Work/"), p("Disk", "/Volumes/X"), p("x", " "), p("root", "/")], ..Settings::default() }.clean();
+        assert_eq!(s.places, [p("Work", "/a/Work"), p("Disk", "/Volumes/X")]);
+        let s = Settings { places: vec![], ..Settings::default() }.clean();
+        assert_eq!(s.places.len(), 2, "never without a place");
     }
 }

@@ -9,18 +9,17 @@
   const sysZh = (navigator.language || '').toLowerCase().startsWith('zh');
 
   // Icons are 24x24 strokes drawn around (0,0).
-  const ACTIONS = {
-    root: { label: ['项目', 'Projects'], icon: '<path d="M-10 -4a2 2 0 0 1 2-2h5l2 2.5h9a2 2 0 0 1 2 2V7a2 2 0 0 1-2 2H-8a2 2 0 0 1-2-2z"/><path d="M-2 3.5l3 -3 3 3M1 0.5v6"/>' },
-    archive: { label: ['归档', 'Archive'], icon: '<rect x="-10" y="-8" width="20" height="5" rx="1.5"/><path d="M-8.5 -3v10a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2V-3M-3 1.5h6"/>' },
-    preview: { label: ['预览', 'Preview'], icon: '<path d="M-10 0c3-5 6.5-7 10-7s7 2 10 7c-3 5-6.5 7-10 7s-7-2-10-7z"/><circle cx="0" cy="0" r="3"/>' },
-  };
-  const IDS = ['root', 'archive', 'preview'];
+  const FOLDER = '<path d="M-10 -4a2 2 0 0 1 2-2h5l2 2.5h9a2 2 0 0 1 2 2V7a2 2 0 0 1-2 2H-8a2 2 0 0 1-2-2z"/><path d="M-2 3.5l3 -3 3 3M1 0.5v6"/>';
+  const EYE = '<path d="M-10 0c3-5 6.5-7 10-7s7 2 10 7c-3 5-6.5 7-10 7s-7-2-10-7z"/><circle cx="0" cy="0" r="3"/>';
+  // Segments: the user's places, then Preview. Ids are what ring_drop expects.
+  let segs = [];
+  const setPlaces = (places) => (segs = [...(places || []).map((p, i) => ({ id: String(i), label: p.label, icon: FOLDER })), { id: 'preview', label: null, icon: EYE }]);
   const ZH = {
-    drop: '拖到一项上', cancel: '松手取消', moved: (n) => `已归位 ${n} 个`, undo: '撤销', undone: '已撤销', failed: '没有移动',
+    preview: '预览', drop: '拖到一项上', cancel: '松手取消', moved: (n) => `已归位 ${n} 个`, undo: '撤销', undone: '已撤销', failed: '没有移动',
     why: { quitClaude: '先退出 Claude', quitCodex: '先退出 Codex', exists: '目标已有同名', busy: '有程序在用', protected: '系统文件夹', notFolder: '不是文件夹', inside: '不能放进自己', crossDevice: '不同磁盘' },
   };
   const EN = {
-    drop: 'Drop on one', cancel: 'Release to cancel', moved: (n) => `${n} moved`, undo: 'Undo', undone: 'Undone', failed: 'Not moved',
+    preview: 'Preview', drop: 'Drop on one', cancel: 'Release to cancel', moved: (n) => `${n} moved`, undo: 'Undo', undone: 'Undone', failed: 'Not moved',
     why: { quitClaude: 'Quit Claude first', quitCodex: 'Quit Codex first', exists: 'Name taken', busy: 'Folder in use', protected: 'System folder', notFolder: 'Not a folder', inside: 'Into itself', crossDevice: 'Other disk' },
   };
 
@@ -51,9 +50,9 @@
     const dx = x - C, dy = y - C, d = Math.hypot(dx, dy);
     if (d < r) return -1;
     if (d > R + 8) return -2;
-    const span = 360 / IDS.length;
+    const span = 360 / segs.length;
     const deg = ((Math.atan2(dy, dx) * 180) / Math.PI + 90 + span / 2 + 720) % 360;
-    return Math.floor(deg / span) % IDS.length;
+    return Math.floor(deg / span) % segs.length;
   }
 
   function hub() {
@@ -69,10 +68,11 @@
 
   function render() {
     let s = '';
-    IDS.forEach((id, i) => {
-      const a = ACTIONS[id];
-      const [lx, ly] = pt(mid(i, IDS.length), (R + r) / 2);
-      s += `<g class="rs ${hot === i ? 'hot' : ''}"><path d="${arc(i, IDS.length)}"/><g class="ic" transform="translate(${lx} ${ly - 10})">${a.icon}</g><text x="${lx}" y="${ly + 18}">${a.label[zh ? 0 : 1]}</text></g>`;
+    const n = segs.length;
+    segs.forEach((a, i) => {
+      const [lx, ly] = pt(mid(i, n), (R + r) / 2);
+      const label = String(a.label ?? L.preview).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+      s += `<g class="rs ${hot === i ? 'hot' : ''}"><path d="${arc(i, n)}"/><g class="ic" transform="translate(${lx} ${ly - 10})">${a.icon}</g><text x="${lx}" y="${ly + 18}">${label}</text></g>`;
     });
     s += `<g class="rh ${hot === -1 ? 'hot' : ''}">${hub()}</g>`;
     if (paths.length > 1 && !busy && !result) {
@@ -110,7 +110,7 @@
   };
 
   async function run(i) {
-    const id = IDS[i];
+    const id = segs[i].id;
     busy = true;
     render();
     const plans = await invoke('ring_drop', { action: id, paths }).catch(() => null);
@@ -174,6 +174,7 @@
 
   function applySettings(s) {
     if (!s) return;
+    setPlaces(s.places);
     zh = s.lang === 'zh' ? true : s.lang === 'en' ? false : sysZh;
     L = zh ? ZH : EN;
     if (s.theme === 'light' || s.theme === 'dark') document.documentElement.dataset.theme = s.theme;

@@ -88,6 +88,12 @@ main { position: relative; min-width: 0; min-height: 0; overflow: auto; }
 .recorder.rec { border-style: solid; border-color: var(--accent); color: var(--accent); font: 500 12.5px var(--f-ui); letter-spacing: 0; }
 .row p.warn { color: var(--mid); }
 .row p.keys-used { color: var(--ink-3); }
+.place { display: grid; grid-template-columns: 24px 130px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 8px 18px; border-top: 1px solid var(--line); }
+.place .n { font: 600 12px var(--f-mono); color: var(--ink-3); text-align: center; }
+.place input { height: 30px; padding: 0 9px; border-radius: 7px; border: 1px solid var(--line-2); background: var(--panel-2); color: var(--ink); font: inherit; font-size: 13px; user-select: text; min-width: 0; }
+.place input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+.place .mono { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.place .btn { height: 30px; font-size: 12.5px; padding: 0 10px; }
 .tip { margin: -6px 0 16px; font-size: 13px; color: var(--ink-2); }
 .tip kbd { font: 500 12px var(--f-mono); padding: 1px 6px; border-radius: 5px; border: 1px solid var(--line-2); background: var(--panel); }
 .os-win [data-mac] { display: none !important; }
