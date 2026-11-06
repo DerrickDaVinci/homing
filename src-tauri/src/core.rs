@@ -984,7 +984,7 @@ mod tests {
         let sub = fs::read_to_string(f.env.claude_projects().join(claude_dir_name(&to)).join("s1/subagents/a.jsonl")).unwrap();
         assert!(sub.contains(&json_str(&to)), "subagent transcripts follow too");
         let toml = fs::read_to_string(f.env.codex().join("config.toml")).unwrap();
-        assert!(toml.contains(&to) && !toml.contains(&from));
+        assert!(toml.contains(&json_str(&to)) && !toml.contains(&json_str(&from)), "TOML escapes like JSON");
         assert!(db_rows(&f.env).contains(&s(&Path::new(&to).join("web"))));
         assert!(db_rows(&f.env).contains(&"/D/My App 2".to_string()), "neighbours untouched");
         assert!(fs::read_dir(f.env.data.join("backups")).unwrap().next().is_some());
@@ -1015,7 +1015,8 @@ mod tests {
         relocate(&f.env, &Live::default(), &s(&repo), &to, QUIET).unwrap();
         let out = command("git").args(["-C", &to, "worktree", "list", "--porcelain"]).output().unwrap();
         let list = String::from_utf8_lossy(&out.stdout).replace('\\', "/");
-        assert!(list.contains(&s(&Path::new(&to).join(".wt").join("feature")).replace('\\', "/")), "{list}");
+        // git prints long names and forward slashes (the temp dir may be an 8.3 short name).
+        assert!(list.contains("Projects/My App/.wt/feature"), "{list}");
         assert!(!list.contains("prunable"), "{list}");
     }
 
