@@ -655,7 +655,11 @@ fn repair_worktrees(from: &str, to: &str) -> bool {
     // git reports resolved paths (/var is /private/var on macOS), so compare
     // against the resolved old location too.
     let from_path = Path::new(from);
-    let real_from = from_path.parent().and_then(|d| fs::canonicalize(d).ok()).map(|d| s(&d.join(from_path.file_name().unwrap_or_default())));
+    // Windows canonical paths carry a verbatim prefix git never prints.
+    let real_from = from_path
+        .parent()
+        .and_then(|d| fs::canonicalize(d).ok())
+        .map(|d| s(&d.join(from_path.file_name().unwrap_or_default())).trim_start_matches(r"\\?\").to_string());
     // git prints forward slashes on Windows too.
     let norm = |p: &str| if cfg!(windows) { p.replace('\\', "/") } else { p.to_string() };
     let (from_n, real_n) = (norm(from), real_from.as_deref().map(norm));
@@ -978,7 +982,7 @@ mod tests {
         let web = f.env.claude_projects().join(claude_dir_name(&s(&Path::new(&to).join("web"))));
         assert!(web.join("s2.jsonl").exists(), "named after where the session started, not where it ended");
         let sub = fs::read_to_string(f.env.claude_projects().join(claude_dir_name(&to)).join("s1/subagents/a.jsonl")).unwrap();
-        assert!(sub.contains(&to), "subagent transcripts follow too");
+        assert!(sub.contains(&json_str(&to)), "subagent transcripts follow too");
         let toml = fs::read_to_string(f.env.codex().join("config.toml")).unwrap();
         assert!(toml.contains(&to) && !toml.contains(&from));
         assert!(db_rows(&f.env).contains(&s(&Path::new(&to).join("web"))));
