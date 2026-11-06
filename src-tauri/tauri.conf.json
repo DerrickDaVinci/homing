@@ -1,0 +1,37 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Homing",
+  "version": "0.1.0",
+  "identifier": "app.homing.desktop",
+  "build": {
+    "frontendDist": "../ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Homing",
+        "width": 1080,
+        "height": 740,
+        "minWidth": 780,
+        "minHeight": 540,
+        "center": true,
+        "dragDropEnabled": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "Utility",
+    "shortDescription": "Move AI-agent projects off your Desktop without losing their history.",
+    "longDescription": "Homing moves project folders from your Desktop into one place and updates Claude Code, the Claude desktop app and Codex so their conversations still open. Everything runs offline, every move is previewed first and can be undone.",
+    "copyright": "MIT License",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "macOS": { "minimumSystemVersion": "13.0", "signingIdentity": "-" }
+  }
+}

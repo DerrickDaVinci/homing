@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Homing</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app" data-page="desk">
+  <aside class="nav">
+    <div class="brand">
+      <img src="brand.png" alt="" class="brand-icon">
+      <div><b>Homing</b><span data-i18n="tagline"></span></div>
+    </div>
+    <nav id="nav">
+      <button type="button" data-page="desk"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="12" rx="2"/><path d="M9 20h6M12 16.5V20"/></svg><span data-i18n="navDesk"></span></button>
+      <button type="button" data-page="history"><svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4.5v3h3"/><path d="M12 8.5V12l2.5 2"/></svg><span data-i18n="navHistory"></span></button>
+      <button type="button" data-page="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M20.5 12h-2.2M5.7 12H3.5M18 6l-1.6 1.6M7.6 16.4 6 18M18 18l-1.6-1.6M7.6 7.6 6 6"/></svg><span data-i18n="navSettings"></span></button>
+      <button type="button" data-page="about"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/></svg><span data-i18n="navAbout"></span></button>
+    </nav>
+    <div class="nav-foot"><span class="ver" id="ver"></span></div>
+  </aside>
+
+  <main id="main">
+    <!-- DESKTOP -->
+    <section class="page" id="p-desk">
+      <header class="ph ph-row">
+        <div><h1 data-i18n="deskTitle"></h1><p id="deskSub"></p></div>
+        <button class="btn" type="button" id="rescan" data-i18n="rescan"></button>
+      </header>
+      <p class="banner" id="runningBanner" hidden></p>
+      <div id="groups"></div>
+      <div class="bar" id="bar">
+        <span id="barText"></span>
+        <button class="btn primary big" type="button" id="previewBtn" data-i18n="previewBtn"></button>
+      </div>
+    </section>
+
+    <!-- HISTORY -->
+    <section class="page" id="p-history">
+      <header class="ph"><h1 data-i18n="navHistory"></h1><p data-i18n="historySub"></p></header>
+      <ul class="list" id="history"></ul>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="page" id="p-settings">
+      <header class="ph"><h1 data-i18n="navSettings"></h1></header>
+      <div class="group">
+        <div class="row"><div><b data-i18n="root"></b><p class="mono" id="rootPath"></p></div><button class="btn" type="button" id="pickRoot" data-i18n="change"></button></div>
+        <div class="row"><div><b data-i18n="archiveDays"></b><p data-i18n="archiveDaysS"></p></div>
+          <div class="range"><input type="range" min="7" max="180" step="1" id="archiveDays"><output id="archiveDaysOut"></output></div></div>
+      </div>
+      <div class="group">
+        <div class="row"><div><b data-i18n="lang"></b></div>
+          <div class="seg" data-set="lang"><button type="button" data-v="auto" data-i18n="followSystem"></button><button type="button" data-v="zh">中文</button><button type="button" data-v="en">English</button></div></div>
+        <div class="row"><div><b data-i18n="theme"></b></div>
+          <div class="seg" data-set="theme"><button type="button" data-v="auto" data-i18n="followSystem"></button><button type="button" data-v="light" data-i18n="light"></button><button type="button" data-v="dark" data-i18n="dark"></button></div></div>
+      </div>
+    </section>
+
+    <!-- ABOUT -->
+    <section class="page" id="p-about">
+      <div class="about">
+        <img src="brand.png" alt="" class="about-icon">
+        <h1>Homing</h1>
+        <p class="about-ver" id="aboutVer"></p>
+        <p class="about-tag" data-i18n="aboutTag"></p>
+      </div>
+      <div class="group">
+        <div class="row"><div><b data-i18n="aWhat"></b><p data-i18n="aWhatS"></p></div></div>
+        <div class="row"><div><b data-i18n="aSafe"></b><p data-i18n="aSafeS"></p></div></div>
+        <div class="row"><div><b data-i18n="aOffline"></b><p data-i18n="aOfflineS"></p></div></div>
+        <div class="row"><div><b data-i18n="aCli"></b><p class="mono">homing scan · homing move &lt;folder&gt; [--apply] · homing undo</p></div></div>
+      </div>
+      <p class="note">github.com/DerrickDaVinci/homing · MIT</p>
+    </section>
+  </main>
+</div>
+
+<!-- preview sheet -->
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet-card">
+    <header><h2 id="sheetTitle"></h2><p id="sheetSub"></p></header>
+    <ul class="plans" id="plans"></ul>
+    <div class="busy" id="busy" hidden><span></span><p data-i18n="working"></p></div>
+    <footer>
+      <button class="btn" type="button" id="cancelBtn" data-i18n="cancel"></button>
+      <button class="btn primary" type="button" id="applyBtn"></button>
+    </footer>
+  </div>
+</div>
+
+<div class="drop" id="drop" hidden><div><b data-i18n="dropNow"></b><span data-i18n="dropNowS"></span></div></div>
+<div class="toast" id="toast"><span id="toastText"></span><button type="button" class="link" id="toastUndo" hidden data-i18n="undo"></button></div>
+<script src="preview-mock.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
