@@ -28,7 +28,7 @@ pub fn normalize(mut keys: Vec<Modifier>) -> Vec<Modifier> {
     keys.sort();
     keys.dedup();
     if keys.is_empty() {
-        keys.push(Modifier::Control);
+        keys.push(Modifier::Shift);
     }
     keys
 }
@@ -162,7 +162,7 @@ mod tests {
     #[test]
     fn keys_are_sorted_unique_and_never_empty() {
         assert_eq!(normalize(vec![Shift, Control, Shift]), vec![Control, Shift]);
-        assert_eq!(normalize(vec![]), vec![Control]);
+        assert_eq!(normalize(vec![]), vec![Shift]);
     }
 
     #[test]

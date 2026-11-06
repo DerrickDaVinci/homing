@@ -39,8 +39,9 @@ impl Default for Settings {
             lang: "auto".into(),
             theme: "auto".into(),
             ring: true,
-            // ⌃: Filee uses ⌘ and Peekless ⌥ for their drag gestures.
-            ring_keys: vec![Modifier::Control],
+            // ⇧: Filee uses ⌘ and Peekless ⌥ for their drag gestures, and
+            // ⌃ held before the click turns it into a right-click.
+            ring_keys: vec![Modifier::Shift],
             ring_preview: false,
             launch_at_login: false,
             start_hidden: false,
@@ -436,6 +437,6 @@ mod tests {
     fn old_settings_files_still_load() {
         let s: Settings = serde_json::from_str(r#"{"root":"/x","archiveDays":10}"#).unwrap();
         assert!(s.ring && !s.ring_preview && s.archive_days == 10);
-        assert_eq!(s.ring_keys, vec![Modifier::Control]);
+        assert_eq!(s.ring_keys, vec![Modifier::Shift]);
     }
 }

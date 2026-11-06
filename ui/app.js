@@ -48,8 +48,9 @@
     ringTip: (k) => (zh ? `小技巧：在桌面或访达里按住 <kbd>${k}</kbd> 拖动项目文件夹，光标旁会弹出归位环，拖到「项目」或「归档」松手就搬好了。` : `Tip: hold <kbd>${k}</kbd> while dragging a project folder on the Desktop or in Finder. A ring opens at the cursor: release on Projects or Archive and it is moved.`),
     ringOn: ['按住按键拖动时弹出归位环', 'Homing ring while dragging'],
     ringOnS: (k) => (zh ? `在桌面、访达或任何地方拖动文件夹时按住 ${k}。不需要辅助功能权限。Homing 需要在菜单栏运行。` : `Hold ${k} while dragging folders anywhere. No Accessibility permission needed. Homing must be running in the menu bar.`),
-    ringKey: ['触发键', 'Trigger keys'], ringKeyS: ['点右边的按钮，按住想用的键（可以组合，比如 ⌃⇧），松开即保存。只有正好按着这组键才会弹出归位环。', 'Click the button, hold the keys you want (combinations work, like ⌃⇧) and release. The ring opens only for exactly these keys.'],
+    ringKey: ['触发键', 'Trigger keys'], ringKeyS: ['点右边的按钮，按住想用的键（可以组合，比如 ⇧⌘），松开即保存。只有正好按着这组键才会弹出归位环。拖动开始后再按也可以。', 'Click the button, hold the keys you want (combinations work, like ⇧⌘) and release. The ring opens only for exactly these keys, pressed before or during the drag.'],
     recording: ['按住想用的键…', 'Hold the keys…'], onlyMods: ['只能用 ⌃ ⌥ ⇧ ⌘ 这几个键。', 'Only ⌃ ⌥ ⇧ ⌘ can be used.'],
+    ctrlNote: ['先按住 ⌃ 再点按会变成右键菜单。用 ⌃ 时要先按住鼠标开始拖动，再按 ⌃；不想这么麻烦就换成 ⇧。', 'Holding ⌃ before you click makes it a right-click. With ⌃, start dragging first, then press it; or pick ⇧ instead.'],
     clash: (who, k) => (zh ? `${who} 也用 ${k} 拖动，两个环会一起弹出。换一个不包含 ${k} 的组合吧。` : `${who} also uses ${k} while dragging, so both would open. Pick keys without ${k}.`),
     used: (list) => (zh ? `这台电脑上已被占用：${list}` : `Already used here: ${list}`),
     dragSuffix: [' + 拖动', ' + drag'],
@@ -90,7 +91,7 @@
   const KEY = { control: '⌃', option: '⌥', shift: '⇧', command: '⌘' };
   const ORDER = ['control', 'option', 'shift', 'command'];
   const keyLabel = (keys) => ORDER.filter((k) => keys.includes(k)).map((k) => KEY[k]).join('');
-  const ringKey = () => keyLabel(settings().ringKeys || ['control']) || '⌃';
+  const ringKey = () => keyLabel(settings().ringKeys || ['shift']) || '⇧';
 
   const ICON = {
     swap: '<svg viewBox="0 0 24 24"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>',
@@ -315,8 +316,11 @@
     const others = S.info.otherRings || [];
     const mine = s.ringKeys || [];
     const clash = others.find((o) => o.keys.every((k) => mine.includes(k)));
-    $('#keyWarn').hidden = !clash;
-    if (clash) $('#keyWarn').textContent = t('clash', clash.name === 'Peekless' ? (zh ? '遮遮' : 'Peekless') : clash.name, keyLabel(clash.keys));
+    const warn = clash
+      ? t('clash', clash.name === 'Peekless' ? (zh ? '遮遮' : 'Peekless') : clash.name, keyLabel(clash.keys))
+      : mine.includes('control') ? t('ctrlNote') : '';
+    $('#keyWarn').hidden = !warn;
+    $('#keyWarn').textContent = warn;
     $('#keysUsed').hidden = !others.length;
     $('#keysUsed').textContent = t('used', others.map((o) => `${o.name === 'Peekless' && zh ? '遮遮' : o.name} ${keyLabel(o.keys)}`).join(' · '));
   }
