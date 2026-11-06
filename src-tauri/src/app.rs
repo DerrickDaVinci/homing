@@ -21,9 +21,9 @@ struct Settings {
     archive_days: u32,
     lang: String,
     theme: String,
-    /// Hold a key while dragging folders to open the homing ring (macOS).
+    /// Hold these keys while dragging folders to open the homing ring (macOS).
     ring: bool,
-    ring_modifier: Modifier,
+    ring_keys: Vec<Modifier>,
     /// Dropping on the ring opens a preview instead of moving right away.
     ring_preview: bool,
     launch_at_login: bool,
@@ -39,7 +39,8 @@ impl Default for Settings {
             lang: "auto".into(),
             theme: "auto".into(),
             ring: true,
-            ring_modifier: Modifier::Option,
+            // ⌃: Filee uses ⌘ and Peekless ⌥ for their drag gestures.
+            ring_keys: vec![Modifier::Control],
             ring_preview: false,
             launch_at_login: false,
             start_hidden: false,
@@ -104,6 +105,8 @@ struct Info {
     home: String,
     desktop: String,
     settings: Settings,
+    /// Drag gestures of other tools (Filee, Peekless), to warn about clashes.
+    other_rings: Vec<ring::OtherRing>,
 }
 
 #[derive(Serialize)]
@@ -123,11 +126,13 @@ fn info(app: AppHandle, store: State<Store>) -> Info {
         home: core::s(&store.env.home),
         desktop: core::s(&store.env.desktop),
         settings: store.settings(),
+        other_rings: dirs::config_dir().map(|d| ring::other_rings(&d)).unwrap_or_default(),
     }
 }
 
 #[tauri::command]
-fn set_settings(app: AppHandle, store: State<Store>, settings: Settings) {
+fn set_settings(app: AppHandle, store: State<Store>, mut settings: Settings) {
+    settings.ring_keys = ring::normalize(settings.ring_keys);
     let old = store.settings();
     if let Some(p) = settings_file(&app) {
         let _ = std::fs::create_dir_all(p.parent().unwrap_or(Path::new(".")));
@@ -341,8 +346,9 @@ pub fn run() {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             let handle = app.handle().clone();
-            let settings: Settings =
+            let mut settings: Settings =
                 settings_file(&handle).and_then(|p| std::fs::read(p).ok()).and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+            settings.ring_keys = ring::normalize(settings.ring_keys);
             if std::env::args().any(|a| a == "--hidden") || settings.start_hidden {
                 if let Some(w) = app.get_webview_window("main") {
                     let _ = w.hide();
@@ -389,7 +395,7 @@ pub fn run() {
                 },
                 move || {
                     let s = ring_cfg.state::<Store>().settings();
-                    s.ring.then_some(s.ring_modifier)
+                    s.ring.then_some(s.ring_keys)
                 },
             );
             Ok(())
@@ -430,5 +436,6 @@ mod tests {
     fn old_settings_files_still_load() {
         let s: Settings = serde_json::from_str(r#"{"root":"/x","archiveDays":10}"#).unwrap();
         assert!(s.ring && !s.ring_preview && s.archive_days == 10);
+        assert_eq!(s.ring_keys, vec![Modifier::Control]);
     }
 }

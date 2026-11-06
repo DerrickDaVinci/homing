@@ -49,8 +49,8 @@
       <header class="ph"><h1 data-i18n="navSettings"></h1></header>
       <div class="group" data-mac>
         <div class="row"><div><b data-i18n="ringOn"></b><p id="ringOnS"></p></div><label class="switch"><input type="checkbox" data-set="ring"><i></i></label></div>
-        <div class="row" data-needs="ring"><div><b data-i18n="ringKey"></b><p data-i18n="ringKeyS"></p></div>
-          <div class="seg" data-set="ringModifier"><button type="button" data-v="option">⌥ Option</button><button type="button" data-v="command">⌘ Command</button><button type="button" data-v="control">⌃ Control</button><button type="button" data-v="shift">⇧ Shift</button></div></div>
+        <div class="row" data-needs="ring"><div><b data-i18n="ringKey"></b><p data-i18n="ringKeyS"></p><p class="warn" id="keyWarn" hidden></p><p class="keys-used" id="keysUsed" hidden></p></div>
+          <button type="button" class="recorder" id="recorder"></button></div>
         <div class="row" data-needs="ring"><div><b data-i18n="ringAfter"></b><p data-i18n="ringAfterS"></p></div>
           <div class="seg" data-set="ringPreview"><button type="button" data-v="false" data-i18n="ringDirect"></button><button type="button" data-v="true" data-i18n="ringAsk"></button></div></div>
       </div>

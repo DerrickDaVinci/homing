@@ -48,7 +48,11 @@
     ringTip: (k) => (zh ? `小技巧：在桌面或访达里按住 <kbd>${k}</kbd> 拖动项目文件夹，光标旁会弹出归位环，拖到「项目」或「归档」松手就搬好了。` : `Tip: hold <kbd>${k}</kbd> while dragging a project folder on the Desktop or in Finder. A ring opens at the cursor: release on Projects or Archive and it is moved.`),
     ringOn: ['按住按键拖动时弹出归位环', 'Homing ring while dragging'],
     ringOnS: (k) => (zh ? `在桌面、访达或任何地方拖动文件夹时按住 ${k}。不需要辅助功能权限。Homing 需要在菜单栏运行。` : `Hold ${k} while dragging folders anywhere. No Accessibility permission needed. Homing must be running in the menu bar.`),
-    ringKey: ['触发键', 'Trigger key'], ringKeyS: ['按住哪个键拖动时弹出归位环。', 'Which key opens the ring while dragging.'],
+    ringKey: ['触发键', 'Trigger keys'], ringKeyS: ['点右边的按钮，按住想用的键（可以组合，比如 ⌃⇧），松开即保存。只有正好按着这组键才会弹出归位环。', 'Click the button, hold the keys you want (combinations work, like ⌃⇧) and release. The ring opens only for exactly these keys.'],
+    recording: ['按住想用的键…', 'Hold the keys…'], onlyMods: ['只能用 ⌃ ⌥ ⇧ ⌘ 这几个键。', 'Only ⌃ ⌥ ⇧ ⌘ can be used.'],
+    clash: (who, k) => (zh ? `${who} 也用 ${k} 拖动，两个环会一起弹出。换一个不包含 ${k} 的组合吧。` : `${who} also uses ${k} while dragging, so both would open. Pick keys without ${k}.`),
+    used: (list) => (zh ? `这台电脑上已被占用：${list}` : `Already used here: ${list}`),
+    dragSuffix: [' + 拖动', ' + drag'],
     ringAfter: ['松手之后', 'After you drop'], ringAfterS: ['"直接归位"会立刻移动，环中间保留撤销；"先预览"会打开主窗口让你确认。', '"Move right away" moves at once and keeps Undo in the ring; "Preview first" opens the window to confirm.'],
     ringDirect: ['直接归位', 'Move right away'], ringAsk: ['先预览', 'Preview first'],
     login: ['开机自动启动', 'Open at login'], loginS: ['登录后在菜单栏待命，归位环随时可用。', 'Waits in the menu bar after you log in, ring ready.'],
@@ -83,8 +87,10 @@
   };
   const cold = (p) => Date.now() / 1000 - p.active > settings().archiveDays * 86400;
   const isArchive = (p) => (S.archive.has(p.path) ? S.archive.get(p.path) : cold(p));
-  const KEY = { option: '⌥', command: '⌘', control: '⌃', shift: '⇧' };
-  const ringKey = () => KEY[settings().ringModifier] || '⌥';
+  const KEY = { control: '⌃', option: '⌥', shift: '⇧', command: '⌘' };
+  const ORDER = ['control', 'option', 'shift', 'command'];
+  const keyLabel = (keys) => ORDER.filter((k) => keys.includes(k)).map((k) => KEY[k]).join('');
+  const ringKey = () => keyLabel(settings().ringKeys || ['control']) || '⌃';
 
   const ICON = {
     swap: '<svg viewBox="0 0 24 24"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>',
@@ -304,7 +310,50 @@
     $$('input[data-set]').forEach((i) => (i.checked = !!s[i.dataset.set]));
     $$('[data-needs]').forEach((el) => el.classList.toggle('off', !s[el.dataset.needs]));
     $('#ringOnS').textContent = t('ringOnS', ringKey());
+    if (!recording) $('#recorder').textContent = ringKey() + t('dragSuffix');
+    // Another tool opens too when all of its keys are among ours.
+    const others = S.info.otherRings || [];
+    const mine = s.ringKeys || [];
+    const clash = others.find((o) => o.keys.every((k) => mine.includes(k)));
+    $('#keyWarn').hidden = !clash;
+    if (clash) $('#keyWarn').textContent = t('clash', clash.name === 'Peekless' ? (zh ? '遮遮' : 'Peekless') : clash.name, keyLabel(clash.keys));
+    $('#keysUsed').hidden = !others.length;
+    $('#keysUsed').textContent = t('used', others.map((o) => `${o.name === 'Peekless' && zh ? '遮遮' : o.name} ${keyLabel(o.keys)}`).join(' · '));
   }
+
+  // Record the trigger: hold modifier keys, release to save. Esc cancels.
+  let recording = null;
+  const MODS = { Control: 'control', Alt: 'option', Shift: 'shift', Meta: 'command' };
+  $('#recorder').addEventListener('click', () => {
+    recording = new Set();
+    $('#recorder').classList.add('rec');
+    $('#recorder').textContent = t('recording');
+  });
+  function stopRecording() {
+    recording = null;
+    $('#recorder').classList.remove('rec');
+    renderSettings();
+  }
+  window.addEventListener('keydown', (e) => {
+    if (!recording) return;
+    e.preventDefault();
+    if (e.key === 'Escape') return stopRecording();
+    if (MODS[e.key]) {
+      recording.add(MODS[e.key]);
+      $('#recorder').textContent = keyLabel([...recording]) + t('dragSuffix');
+    } else {
+      $('#recorder').textContent = t('onlyMods');
+    }
+  });
+  window.addEventListener('keyup', async (e) => {
+    if (!recording || !MODS[e.key]) return;
+    const held = e.ctrlKey || e.altKey || e.shiftKey || e.metaKey;
+    if (held || !recording.size) return; // wait until every key is released
+    settings().ringKeys = [...recording];
+    stopRecording();
+    await save();
+    renderAll();
+  });
 
   $$('input[data-set]').forEach((i) =>
     i.addEventListener('change', async () => {

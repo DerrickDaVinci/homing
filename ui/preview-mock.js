@@ -16,7 +16,7 @@
     p('stock-notes', 57, 0, 0, 232, false),
     p('old-portfolio', 108, 0, 0, 0, true),
   ];
-  let settings = { root: `${home}/Projects`, archiveDays: 30, lang: 'auto', theme: 'auto', ring: true, ringModifier: 'option', ringPreview: false, launchAtLogin: false, startHidden: false };
+  let settings = { root: `${home}/Projects`, archiveDays: 30, lang: 'auto', theme: 'auto', ring: true, ringKeys: ['control'], ringPreview: false, launchAtLogin: false, startHidden: false };
   let history = [];
   const plan = (m) => {
     const pr = projects.find((x) => x.path === m.from) || { claude: 0, claude_app: 0, codex: 0, name: m.from.split('/').pop() };
@@ -27,7 +27,7 @@
   };
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const handlers = {
-    info: () => ({ version: '0.1.0', platform: 'macos', home, desktop: `${home}/Desktop`, settings }),
+    info: () => ({ version: '0.1.0', platform: 'macos', home, desktop: `${home}/Desktop`, settings, otherRings: [{ name: 'Filee', keys: ['command'] }, { name: 'Peekless', keys: ['option'] }] }),
     set_settings: ({ settings: s }) => void (settings = s),
     scan: async () => (await wait(300), { desktop_ok: true, projects, running: { claude_app: true, codex: false } }),
     preview: async ({ moves }) => (await wait(300), moves.map(plan)),
